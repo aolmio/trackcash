@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Expense Tracker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .apple-blur { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+        input:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15); }
+    </style>
+</head>
+<body class="bg-[#f5f5f7] dark:bg-[#000000] text-[#1d1d1f] dark:text-[#f5f5f7] font-sans min-h-screen transition-colors duration-300 antialiased pb-12">
+
+    <div id="vaultModal" class="fixed inset-0 bg-black/40 dark:bg-black/70 flex items-center justify-center z-50 apple-blur px-4">
+        <div id="unlockState" class="hidden bg-white/80 dark:bg-[#1c1c1e]/80 p-8 rounded-3xl max-w-md w-full shadow-2xl border border-white/20 apple-blur text-center">
+            <h2 class="text-2xl font-semibold tracking-tight mb-2">Unlock LedgerCloud</h2>
+            <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">Enter your admin passcode to decrypt cloud credentials and sync.</p>
+            <input type="password" id="vaultPasscode" class="w-full text-center px-4 py-3 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white text-lg tracking-widest mb-4" placeholder="••••••••">
+            <button onclick="unlockVault()" class="w-full bg-[#0071e3] text-white py-3 rounded-xl font-medium tracking-tight hover:bg-[#0077ed] transition-colors">Unlock & Sync</button>
+            <button onclick="resetVault()" class="text-xs text-red-500 mt-6 hover:underline block mx-auto">Reset Saved Credentials</button>
+        </div>
+
+        <div id="setupState" class="hidden bg-white/80 dark:bg-[#1c1c1e]/80 p-8 rounded-3xl max-w-md w-full shadow-2xl border border-white/20 apple-blur">
+            <h2 class="text-2xl font-semibold tracking-tight mb-2">Secure Initial Setup</h2>
+            <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">Your keys will be encrypted locally using AES. They are never stored in plain text.</p>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium uppercase tracking-wider text-neutral-400 mb-1">Supabase URL</label>
+                    <input type="text" id="setupUrl" class="w-full px-4 py-3 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white" placeholder="https://your-project.supabase.co">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium uppercase tracking-wider text-neutral-400 mb-1">Supabase Anon Key</label>
+                    <input type="password" id="setupKey" class="w-full px-4 py-3 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white" placeholder="eyJhbGciOiJIUzI1Ni...">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium uppercase tracking-wider text-neutral-400 mb-1">Create Admin Passcode</label>
+                    <input type="password" id="setupPasscode" class="w-full px-4 py-3 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white" placeholder="Choose a secure password">
+                </div>
+                <button onclick="setupVault()" class="w-full bg-[#0071e3] text-white py-3 rounded-xl font-medium tracking-tight hover:bg-[#0077ed] transition-colors mt-2">Encrypt & Save</button>
+            </div>
+        </div>
+    </div>
+
+    <header class="sticky top-0 z-40 w-full border-b border-neutral-200/50 dark:border-neutral-800/50 bg-[#f5f5f7]/80 dark:bg-[#000000]/80 apple-blur">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <span class="text-xl font-semibold tracking-tight">LedgerCloud</span>
+                <span id="syncBadge" class="text-xs bg-neutral-200 dark:bg-neutral-800 px-2.5 py-1 rounded-full text-neutral-500 dark:text-neutral-400">Not Synced</span>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button id="adminStatusBtn" onclick="lockAdminSession()" class="text-xs bg-green-500/10 text-green-600 dark:text-green-400 px-3 py-1.5 rounded-full font-medium border border-green-500/20">🔓 Admin Unlocked</button>
+                <button onclick="toggleTheme()" class="p-2 rounded-full bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
+                    <svg id="themeIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.75A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" /></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-6 mt-8 space-y-8">
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm">
+                <p class="text-xs font-medium uppercase tracking-wider text-neutral-400">Week Usage</p>
+                <h3 id="statWeek" class="text-2xl lg:text-3xl font-semibold tracking-tight mt-2">$0.00</h3>
+            </div>
+            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm">
+                <p class="text-xs font-medium uppercase tracking-wider text-neutral-400">Month Usage</p>
+                <h3 id="statMonth" class="text-2xl lg:text-3xl font-semibold tracking-tight mt-2">$0.00</h3>
+            </div>
+            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm">
+                <p class="text-xs font-medium uppercase tracking-wider text-neutral-400">Year Usage</p>
+                <h3 id="statYear" class="text-2xl lg:text-3xl font-semibold tracking-tight mt-2">$0.00</h3>
+            </div>
+            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm">
+                <p class="text-xs font-medium uppercase tracking-wider text-neutral-400">All Time Usage</p>
+                <h3 id="statAllTime" class="text-2xl lg:text-3xl font-semibold tracking-tight mt-2">$0.00</h3>
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="font-semibold tracking-tight">Timeline Trend</h4>
+                    <select id="timelineRange" onchange="renderCharts()" class="bg-neutral-100 dark:bg-[#2c2c2e] text-xs font-medium py-1.5 px-3 rounded-full border-none">
+                        <option value="week">This Week</option>
+                        <option value="month" selected>This Month</option>
+                        <option value="year">This Year</option>
+                        <option value="all">All Time</option>
+                    </select>
+                </div>
+                <div class="h-64 relative w-full"><canvas id="lineChart"></canvas></div>
+            </div>
+            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm flex flex-col justify-between">
+                <h4 class="font-semibold tracking-tight mb-4">Category Allocation</h4>
+                <div class="h-64 relative w-full flex justify-center"><canvas id="pieChart"></canvas></div>
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            <div id="formContainer" class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm admin-element transition-opacity duration-300">
+                <h4 id="formTitle" class="font-semibold tracking-tight mb-4">Add Transaction</h4>
+                <form id="expenseForm" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                    <input type="hidden" id="editId">
+                    <div>
+                        <label class="block text-xs font-medium text-neutral-400 uppercase tracking-wider mb-1">Amount ($)</label>
+                        <input type="number" step="0.01" id="expAmount" required class="w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white">
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-medium text-neutral-400 uppercase tracking-wider">Category</label>
+                            <button type="button" onclick="manageCategories()" class="text-xs text-[#0071e3] hover:underline">Edit List</button>
+                        </div>
+                        <select id="expCategory" required class="w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white"></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-neutral-400 uppercase tracking-wider mb-1">Description</label>
+                        <input type="text" id="expDesc" class="w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white" placeholder="Retail, dinner, utility etc.">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-neutral-400 uppercase tracking-wider mb-1">Date</label>
+                        <input type="date" id="expDate" required class="w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white">
+                    </div>
+                    <div class="flex space-x-2 pt-2">
+                        <button type="button" id="cancelEditBtn" onclick="resetForm()" class="hidden w-1/3 bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 py-2.5 rounded-xl font-medium text-sm transition-all">Cancel</button>
+                        <button type="submit" id="submitFormBtn" class="flex-1 bg-[#0071e3] text-white py-2.5 rounded-xl font-medium text-sm hover:bg-[#0077ed] transition-all">Save Entry</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="lg:col-span-2 bg-white dark:bg-[#1c1c1e] rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm overflow-hidden">
+                <div class="p-6 border-b border-neutral-100 dark:border-neutral-800 flex flex-wrap items-center justify-between gap-4">
+                    <h4 class="font-semibold tracking-tight">Audit Timeline</h4>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="exportData()" class="text-xs font-medium bg-neutral-100 dark:bg-[#2c2c2e] py-1.5 px-3 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-700">Export</button>
+                        <label class="text-xs font-medium bg-neutral-100 dark:bg-[#2c2c2e] py-1.5 px-3 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-700 cursor-pointer">
+                            Import <input type="file" id="importFile" accept=".json" onchange="importData(event)" class="hidden">
+                        </label>
+                    </div>
+                </div>
+                <div class="overflow-x-auto max-h-[420px]">
+                    <table class="w-full text-left text-sm whitespace-nowrap">
+                        <thead class="bg-neutral-50 dark:bg-[#2c2c2e] text-xs font-medium uppercase tracking-wider text-neutral-400 sticky top-0">
+                            <tr>
+                                <th class="px-6 py-3">Date</th>
+                                <th class="px-6 py-3">Category</th>
+                                <th class="px-6 py-3">Description</th>
+                                <th class="px-6 py-3 text-right">Amount</th>
+                                <th class="px-6 py-3 text-center admin-element transition-opacity duration-300">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ledgerBody" class="divide-y divide-neutral-100 dark:divide-neutral-800"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let _sb = null;
+        let _data = [];
+        let _categories = ['Food & Dining', 'Housing', 'Utilities', 'Transportation', 'Entertainment', 'Healthcare'];
+        let _isAdminMode = true;
+        let _masterPasscode = '';
+        let lineChartInstance = null;
+        let pieChartInstance = null;
+
+        document.getElementById('expDate').valueAsDate = new Date();
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('lc_vault')) {
+                document.getElementById('unlockState').classList.remove('hidden');
+            } else {
+                document.getElementById('setupState').classList.remove('hidden');
+            }
+            populateCategories();
+        });
+
+        // Theme management
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) toggleTheme();
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.classList.toggle('dark');
+            const isDark = html.classList.contains('dark');
+            document.getElementById('themeIcon').innerHTML = isDark 
+                ? `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M16.243 17.657l.707.707M6.343 6.343l.707-.707M14.25 12a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />`
+                : `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.75A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />`;
+            if (lineChartInstance) renderCharts();
+        }
+
+        // Encryption Configuration Vault Processing
+        function setupVault() {
+            const url = document.getElementById('setupUrl').value.trim();
+            const key = document.getElementById('setupKey').value.trim();
+            const pass = document.getElementById('setupPasscode').value.trim();
+
+            if (!url || !key || !pass) return alert('All setup values are required.');
+
+            _masterPasscode = pass;
+            const payload = JSON.stringify({ url, key });
+            const ciphertext = CryptoJS.AES.encrypt(payload, pass).toString();
+            
+            localStorage.setItem('lc_vault', ciphertext);
+            initSupabase(url, key);
+        }
+
+        function unlockVault() {
+            const pass = document.getElementById('vaultPasscode').value.trim();
+            const ciphertext = localStorage.getItem('lc_vault');
+
+            try {
+                const bytes = CryptoJS.AES.decrypt(ciphertext, pass);
+                const decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+
+                if (decryptedData.url && decryptedData.key) {
+                    _masterPasscode = pass;
+                    initSupabase(decryptedData.url, decryptedData.key);
+                } else {
+                    throw new Error();
+                }
+            } catch (err) {
+                alert('Invalid Admin Passcode. Decryption failed.');
+            }
+        }
+
+        function resetVault() {
+            if (confirm('Are you sure you want to clear your saved cloud keys?')) {
+                localStorage.removeItem('lc_vault');
+                location.reload();
+            }
+        }
+
+        function initSupabase(url, key) {
+            try {
+                _sb = window.supabase.createClient(url, key);
+                document.getElementById('vaultModal').classList.add('hidden');
+                _isAdminMode = true;
+                evalAdminInterfaceElements();
+                syncRead();
+            } catch (e) {
+                alert('Supabase client ignition crash: ' + e.message);
+            }
+        }
+
+        function populateCategories() {
+            const select = document.getElementById('expCategory');
+            select.innerHTML = _categories.map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+
+        function manageCategories() {
+            if (!_isAdminMode) return;
+            const res = prompt('Manage Categories (comma separated values):', _categories.join(', '));
+            if (res) {
+                _categories = res.split(',').map(s => s.trim()).filter(Boolean);
+                populateCategories();
+            }
+        }
+
+        // Cloud Data Synchronization Sync Pipeline
+        async function syncRead() {
+            if (!_sb) return;
+            const { data, error } = await _sb.from('expenses').select('*').order('date', { ascending: false });
+            if (error) return console.error(error);
+            
+            _data = data;
+            updateMetrics();
+            renderCharts();
+            renderLedgerTable();
+            document.getElementById('syncBadge').innerText = `Synced: ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}`;
+        }
+
+        function updateMetrics() {
+            const now = new Date();
+            let wk = 0, mo = 0, yr = 0, total = 0;
+
+            const startOfWeek = new Date(now);
+            startOfWeek.setDate(now.getDate() - now.getDay());
+            startOfWeek.setHours(0,0,0,0);
+
+            _data.forEach(e => {
+                const amt = parseFloat(e.amount);
+                const d = new Date(e.date);
+                total += amt;
+                if (d.getFullYear() === now.getFullYear()) {
+                    yr += amt;
+                    if (d.getMonth() === now.getMonth()) mo += amt;
+                }
+                if (d >= startOfWeek && d <= now) wk += amt;
+            });
+
+            const format = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
+            document.getElementById('statWeek').innerText = format(wk);
+            document.getElementById('statMonth').innerText = format(mo);
+            document.getElementById('statYear').innerText = format(yr);
+            document.getElementById('statAllTime').innerText = format(total);
+        }
+
+        function renderLedgerTable() {
+            const tbody = document.getElementById('ledgerBody');
+            tbody.innerHTML = _data.map(e => `
+                <tr class="hover:bg-neutral-50 dark:hover:bg-neutral-800/40 transition-colors">
+                    <td class="px-6 py-4 font-medium">${e.date}</td>
+                    <td class="px-6 py-4"><span class="px-2.5 py-1 text-xs font-medium rounded-full bg-neutral-100 dark:bg-neutral-800">${e.category}</span></td>
+                    <td class="px-6 py-4 text-neutral-500 dark:text-neutral-400 max-w-xs truncate">${e.description || '—'}</td>
+                    <td class="px-6 py-4 text-right font-semibold text-[#1d1d1f] dark:text-[#f5f5f7]">$${parseFloat(e.amount).toFixed(2)}</td>
+                    <td class="px-6 py-4 text-center admin-element ${ _isAdminMode ? 'opacity-100' : 'opacity-0 pointer-events-none' }">
+                        <button onclick="prepEdit('${e.id}')" class="text-xs text-[#0071e3] hover:underline mr-3">Edit</button>
+                        <button onclick="deleteItem('${e.id}')" class="text-xs text-red-500 hover:underline">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderCharts() {
+            const filter = document.getElementById('timelineRange').value;
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#a1a1aa' : '#737373';
+            const gridColor = isDark ? '#27272a' : '#e5e5e5';
+
+            let filtered = [..._data];
+            const now = new Date();
+
+            if (filter === 'week') {
+                const wk = new Date(now.setDate(now.getDate() - now.getDay()));
+                filtered = filtered.filter(e => new Date(e.date) >= wk);
+            } else if (filter === 'month') {
+                filtered = filtered.filter(e => new Date(e.date).getMonth() === now.getMonth() && new Date(e.date).getFullYear() === now.getFullYear());
+            } else if (filter === 'year') {
+                filtered = filtered.filter(e => new Date(e.date).getFullYear() === now.getFullYear());
+            }
+
+            const timelineMap = {};
+            filtered.forEach(e => { timelineMap[e.date] = (timelineMap[e.date] || 0) + parseFloat(e.amount); });
+            const sortedDates = Object.keys(timelineMap).sort((a,b) => new Date(a) - new Date(b));
+            const timelineData = sortedDates.map(d => timelineMap[d]);
+
+            if(lineChartInstance) lineChartInstance.destroy();
+            lineChartInstance = new Chart(document.getElementById('lineChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: sortedDates,
+                    datasets: [{
+                        data: timelineData,
+                        borderColor: '#0071e3',
+                        borderWidth: 3,
+                        pointRadius: 2,
+                        tension: 0.3,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: gridColor }, ticks: { color: textColor } },
+                        y: { grid: { color: gridColor }, ticks: { color: textColor } }
+                    }
+                }
+            });
+
+            const catMap = {};
+            filtered.forEach(e => { catMap[e.category] = (catMap[e.category] || 0) + parseFloat(e.amount); });
+
+            if(pieChartInstance) pieChartInstance.destroy();
+            pieChartInstance = new Chart(document.getElementById('pieChart').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(catMap),
+                    datasets: [{
+                        data: Object.values(catMap),
+                        backgroundColor: ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#0071e3', '#5856d6', '#af52de'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: textColor, boxWidth: 12 } } }
+                }
+            });
+        }
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            if (!_isAdminMode || !_sb) return;
+
+            const id = document.getElementById('editId').value;
+            const rowPayload = {
+                amount: parseFloat(document.getElementById('expAmount').value),
+                category: document.getElementById('expCategory').value,
+                description: document.getElementById('expDesc').value.trim(),
+                date: document.getElementById('expDate').value
+            };
+
+            let err = null;
+            if (id) {
+                const { error } = await _sb.from('expenses').update(rowPayload).eq('id', id);
+                err = error;
+            } else {
+                const { error } = await _sb.from('expenses').insert([rowPayload]);
+                err = error;
+            }
+
+            if (err) alert('Data write error: ' + err.message);
+            else { resetForm(); await syncRead(); }
+        }
+
+        function prepEdit(id) {
+            const item = _data.find(e => e.id === id);
+            if (!item) return;
+            document.getElementById('editId').value = item.id;
+            document.getElementById('expAmount').value = item.amount;
+            document.getElementById('expCategory').value = item.category;
+            document.getElementById('expDesc').value = item.description;
+            document.getElementById('expDate').value = item.date;
+            
+            document.getElementById('formTitle').innerText = "Modify Transaction";
+            document.getElementById('submitFormBtn').innerText = "Update Entry";
+            document.getElementById('cancelEditBtn').classList.remove('hidden');
+        }
+
+        function resetForm() {
+            document.getElementById('editId').value = '';
+            document.getElementById('expenseForm').reset();
+            document.getElementById('expDate').valueAsDate = new Date();
+            document.getElementById('formTitle').innerText = "Add Transaction";
+            document.getElementById('submitFormBtn').innerText = "Save Entry";
+            document.getElementById('cancelEditBtn').classList.add('hidden');
+        }
+
+        async function deleteItem(id) {
+            if (!_isAdminMode || !confirm('Terminal deletion?')) return;
+            const { error } = await _sb.from('expenses').delete().eq('id', id);
+            if (error) alert('Deletion error: ' + error.message);
+            else await syncRead();
+        }
+
+        function lockAdminSession() {
+            _isAdminMode = !_isAdminMode;
+            evalAdminInterfaceElements();
+        }
+
+        function evalAdminInterfaceElements() {
+            const btn = document.getElementById('adminStatusBtn');
+            const targetElements = document.querySelectorAll('.admin-element');
+            const container = document.getElementById('formContainer');
+            
+            if (_isAdminMode) {
+                btn.innerText = "🔓 Admin Unlocked";
+                btn.className = "text-xs bg-green-500/10 text-green-600 dark:text-green-400 px-3 py-1.5 rounded-full font-medium border border-green-500/20";
+                container.classList.remove('opacity-40', 'pointer-events-none');
+                targetElements.forEach(t => t.classList.remove('opacity-0', 'pointer-events-none'));
+            } else {
+                btn.innerText = "🔒 Locked (Viewer)";
+                btn.className = "text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 px-3 py-1.5 rounded-full font-medium border border-amber-500/20";
+                container.classList.add('opacity-40', 'pointer-events-none');
+                targetElements.forEach(t => { if(t.tagName !== 'DIV') t.classList.add('opacity-0', 'pointer-events-none'); });
+                resetForm();
+            }
+            renderLedgerTable();
+        }
+
+        function exportData() {
+            const blob = new Blob([JSON.stringify(_data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ledger_export_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+        }
+
+        async function importData(event) {
+            if (!_isAdminMode) return alert('Admin access validation mandatory.');
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    const clean = parsed.map(({amount, category, description, date}) => ({amount, category, description, date}));
+                    const { error } = await _sb.from('expenses').insert(clean);
+                    if (error) throw error;
+                    await syncRead();
+                    alert('Cloud sync update complete.');
+                } catch (err) {
+                    alert('Import parse failure: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
