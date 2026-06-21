@@ -25,7 +25,7 @@
         input:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15); }
         
         .empty-chart::after {
-            content: "No data for this period.";
+            content: "No data for this selected period.";
             position: absolute;
             inset: 0;
             display: flex;
@@ -40,6 +40,12 @@
             background-color: rgba(28, 28, 30, 0.8);
             color: #737373;
         }
+
+        /* Custom Scrollbar for better UI */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; }
     </style>
 </head>
 <body class="bg-[#f5f5f7] dark:bg-[#000000] text-[#1d1d1f] dark:text-[#f5f5f7] font-sans min-h-screen transition-colors duration-300 antialiased pb-12">
@@ -47,29 +53,29 @@
     <div id="vaultModal" class="fixed inset-0 bg-black/40 dark:bg-black/70 flex items-center justify-center z-50 apple-blur px-4">
         <div id="unlockState" class="hidden bg-white/80 dark:bg-[#1c1c1e]/80 p-8 rounded-3xl max-w-md w-full shadow-2xl border border-white/20 apple-blur text-center">
             <h2 class="text-2xl font-semibold tracking-tight mb-2">Unlock LedgerCloud</h2>
-            <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">Enter your admin passcode to safely verify, decrypt, and establish connection.</p>
-            <input type="password" id="vaultPasscode" class="w-full text-center px-4 py-3 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white text-lg tracking-widest mb-4" placeholder="••••••••">
-            <button onclick="unlockVault()" class="w-full bg-[#0071e3] text-white py-3 rounded-xl font-medium tracking-tight hover:bg-[#0077ed] transition-colors">Unlock & Sync</button>
+            <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">Enter your admin passcode to decrypt cloud credentials and establish connection.</p>
+            <input type="password" id="vaultPasscode" class="w-full text-center px-4 py-3 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white text-lg tracking-widest mb-4 transition-all" placeholder="••••••••">
+            <button onclick="unlockVault()" class="w-full bg-[#0071e3] text-white py-3 rounded-xl font-medium tracking-tight hover:bg-[#0077ed] transition-colors shadow-sm">Unlock & Sync</button>
             <button onclick="resetVault()" class="text-xs text-red-500 mt-6 hover:underline block mx-auto">Reset Saved Credentials</button>
         </div>
 
         <div id="setupState" class="hidden bg-white/80 dark:bg-[#1c1c1e]/80 p-8 rounded-3xl max-w-md w-full shadow-2xl border border-white/20 apple-blur">
             <h2 class="text-2xl font-semibold tracking-tight mb-2">Secure Initial Setup</h2>
-            <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">Keys are encrypted using AES-256 derived via safe cryptographic salt and PBKDF2 iterations.</p>
+            <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">Keys are securely encrypted locally using AES-256 derived via cryptographic PBKDF2 salting rules.</p>
             <div class="space-y-4">
                 <div>
                     <label class="block text-xs font-medium uppercase tracking-wider text-neutral-400 mb-1">Supabase URL</label>
-                    <input type="text" id="setupUrl" class="w-full px-4 py-3 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white" placeholder="https://your-project.supabase.co">
+                    <input type="text" id="setupUrl" class="w-full px-4 py-3 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-all" placeholder="https://your-project.supabase.co">
                 </div>
                 <div>
                     <label class="block text-xs font-medium uppercase tracking-wider text-neutral-400 mb-1">Supabase Anon Key</label>
-                    <input type="password" id="setupKey" class="w-full px-4 py-3 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white" placeholder="eyJhbGciOiJIUzI1Ni...">
+                    <input type="password" id="setupKey" class="w-full px-4 py-3 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-all" placeholder="eyJhbGciOiJIUzI1Ni...">
                 </div>
                 <div>
                     <label class="block text-xs font-medium uppercase tracking-wider text-neutral-400 mb-1">Create Admin Passcode</label>
-                    <input type="password" id="setupPasscode" class="w-full px-4 py-3 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white" placeholder="Choose a secure password">
+                    <input type="password" id="setupPasscode" class="w-full px-4 py-3 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-all" placeholder="Choose a secure password">
                 </div>
-                <button onclick="setupVault()" class="w-full bg-[#0071e3] text-white py-3 rounded-xl font-medium tracking-tight hover:bg-[#0077ed] transition-colors mt-2">Encrypt & Save</button>
+                <button onclick="setupVault()" class="w-full bg-[#0071e3] text-white py-3 rounded-xl font-medium tracking-tight hover:bg-[#0077ed] transition-colors mt-2 shadow-sm">Encrypt & Save</button>
             </div>
         </div>
     </div>
@@ -78,12 +84,52 @@
         <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
                 <span class="text-xl font-semibold tracking-tight">LedgerCloud</span>
-                <span id="syncBadge" class="text-xs bg-neutral-200 dark:bg-neutral-800 px-2.5 py-1 rounded-full text-neutral-500 dark:text-neutral-400">Not Synced</span>
+                <span id="syncBadge" class="hidden sm:inline-block text-[10px] uppercase tracking-wider font-bold bg-neutral-200 dark:bg-neutral-800 px-2.5 py-1 rounded-full text-neutral-500 dark:text-neutral-400">Not Synced</span>
             </div>
-            <div class="flex items-center space-x-4">
-                <button id="adminStatusBtn" onclick="lockAdminSession()" class="text-xs bg-green-500/10 text-green-600 dark:text-green-400 px-3 py-1.5 rounded-full font-medium border border-green-500/20 transition-all">🔓 Admin Unlocked</button>
-                <button onclick="toggleTheme()" class="p-2 rounded-full bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
-                    <svg id="themeIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.75A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" /></svg>
+            
+            <div class="flex items-center space-x-3 sm:space-x-4">
+                
+                <div class="relative flex items-center bg-neutral-200/60 dark:bg-[#1c1c1e] rounded-xl border border-neutral-300/30 p-1">
+                    <span class="text-[10px] font-bold tracking-wider text-neutral-400 uppercase pl-2 pr-1 hidden sm:inline-block">View:</span>
+                    <select id="globalCurrencySelect" onchange="handleGlobalCurrencyChange()" class="bg-white dark:bg-[#2c2c2e] text-xs font-semibold py-1.5 px-2 rounded-lg border-none outline-none cursor-pointer text-[#0071e3] transition-colors">
+                        <option value="USD">USD ($)</option>
+                        <option value="MMK">MMK (Ks)</option>
+                        <option value="THB">THB (฿)</option>
+                        <option value="CNY">CNY (¥)</option>
+                    </select>
+                    
+                    <div class="w-px h-4 bg-neutral-300 dark:bg-neutral-700 mx-1.5"></div>
+                    
+                    <button id="fxSettingsBtn" onclick="toggleFxSettings()" class="p-1.5 rounded-lg text-neutral-500 hover:text-[#0071e3] hover:bg-white dark:hover:bg-[#2c2c2e] transition-all" title="Adjust Market Rates">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </button>
+
+                    <div id="fxSettingsDropdown" class="absolute top-full right-0 mt-3 w-64 bg-white/95 dark:bg-[#1c1c1e]/95 apple-blur p-5 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-800 z-50 transform origin-top-right transition-all duration-200 opacity-0 pointer-events-none scale-95 -translate-y-2">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-xs font-semibold uppercase tracking-wider text-neutral-500">Market Rate Calibration</h4>
+                        </div>
+                        <p class="text-[10px] text-neutral-400 mb-3 leading-relaxed">Adjust the real-world MMK market rate against the USD. This will cascade correctly across THB and CNY.</p>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Current: 1 USD =</label>
+                                <div class="relative">
+                                    <input type="number" id="inputCustomMMK" class="w-full pl-3 pr-10 py-2.5 text-sm font-semibold bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-all text-[#0071e3]" placeholder="e.g. 3500">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-400">MMK</span>
+                                </div>
+                            </div>
+                            <div class="pt-2 flex space-x-2">
+                                <button onclick="resetFxRates()" class="flex-1 py-2 bg-neutral-200 dark:bg-neutral-800 text-xs font-medium rounded-xl text-neutral-600 dark:text-neutral-400 hover:bg-neutral-300 dark:hover:bg-neutral-700 transition-colors">Reset Default</button>
+                                <button onclick="applyFxRates()" class="flex-1 py-2 bg-[#0071e3] text-xs font-medium rounded-xl text-white hover:bg-[#0077ed] shadow-sm transition-colors">Apply Math</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="adminStatusBtn" onclick="lockAdminSession()" class="hidden sm:block text-xs bg-green-500/10 text-green-600 dark:text-green-400 px-3 py-1.5 rounded-full font-medium border border-green-500/20 transition-all hover:bg-green-500/20">🔓 Admin Unlocked</button>
+                <button onclick="toggleTheme()" class="p-2 rounded-full bg-neutral-200 dark:bg-[#1c1c1e] text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-800 transition-colors border border-neutral-300/30">
+                    <svg id="themeIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.75A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" /></svg>
                 </button>
             </div>
         </div>
@@ -91,22 +137,57 @@
 
     <main class="max-w-7xl mx-auto px-6 mt-8 space-y-8">
         
+        <section class="bg-white dark:bg-[#1c1c1e] p-5 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-colors">
+            <div class="flex flex-col space-y-1">
+                <span class="text-xs font-bold uppercase text-neutral-400 tracking-wider">Active Workspace Window</span>
+                <h2 id="activeRangeDisplayTitle" class="text-base font-semibold tracking-tight text-[#0071e3]">Loading operational metrics...</h2>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                <div id="granularTimeInputsWrapper" class="flex items-center gap-2">
+                    <input type="week" id="pickerSpecificWeek" onchange="executeDataPipelineFilter()" class="hidden bg-neutral-100 dark:bg-[#2c2c2e] text-xs font-medium py-2 px-3 rounded-xl border-none outline-none text-neutral-700 dark:text-neutral-300 transition-colors">
+                    <input type="month" id="pickerSpecificMonth" onchange="executeDataPipelineFilter()" class="hidden bg-neutral-100 dark:bg-[#2c2c2e] text-xs font-medium py-2 px-3 rounded-xl border-none outline-none text-neutral-700 dark:text-neutral-300 transition-colors">
+                    <select id="pickerSpecificYear" onchange="executeDataPipelineFilter()" class="hidden bg-neutral-100 dark:bg-[#2c2c2e] text-xs font-medium py-2 px-3 rounded-xl border-none outline-none text-neutral-700 dark:text-neutral-300 transition-colors"></select>
+                    <div id="pickerCustomRange" class="hidden flex items-center space-x-2 bg-neutral-100 dark:bg-[#2c2c2e] p-1 rounded-xl">
+                        <input type="date" id="customRangeStart" onchange="executeDataPipelineFilter()" class="bg-white dark:bg-[#1c1c1e] text-xs font-medium py-1.5 px-2.5 rounded-lg border-none outline-none text-neutral-700 dark:text-neutral-300 shadow-sm transition-colors">
+                        <span class="text-xs text-neutral-400 font-medium">to</span>
+                        <input type="date" id="customRangeEnd" onchange="executeDataPipelineFilter()" class="bg-white dark:bg-[#1c1c1e] text-xs font-medium py-1.5 px-2.5 rounded-lg border-none outline-none text-neutral-700 dark:text-neutral-300 shadow-sm transition-colors">
+                    </div>
+                </div>
+
+                <select id="primaryTimeframeSelector" onchange="handlePrimaryTimeframeChange()" class="bg-neutral-100 dark:bg-[#2c2c2e] text-xs font-semibold py-2.5 px-4 rounded-xl border-none outline-none focus:ring-2 focus:ring-[#0071e3]/50 cursor-pointer text-neutral-800 dark:text-neutral-200 transition-colors shadow-sm">
+                    <optgroup label="Standard Presets">
+                        <option value="current-week">Current Week</option>
+                        <option value="current-month" selected>Current Month</option>
+                        <option value="current-year">Current Year</option>
+                        <option value="all-time">All-Time Balance</option>
+                    </optgroup>
+                    <optgroup label="Granular Choice Engine">
+                        <option value="specific-week">Choose Specific Week...</option>
+                        <option value="specific-month">Choose Specific Month...</option>
+                        <option value="specific-year">Choose Specific Year...</option>
+                        <option value="custom-range">Custom Date Boundary...</option>
+                    </optgroup>
+                </select>
+            </div>
+        </section>
+
         <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm flex flex-col justify-between">
-                <p class="text-xs font-medium uppercase tracking-wider text-neutral-400">Month Income</p>
+            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+                <p class="text-xs font-bold uppercase tracking-wider text-neutral-400">Selected Income</p>
                 <h3 id="statIncome" class="text-2xl lg:text-3xl font-semibold tracking-tight mt-2 text-green-600 dark:text-green-400">$0.00</h3>
             </div>
-            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm flex flex-col justify-between">
-                <p class="text-xs font-medium uppercase tracking-wider text-neutral-400">Month Expense</p>
+            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+                <p class="text-xs font-bold uppercase tracking-wider text-neutral-400">Selected Expense</p>
                 <h3 id="statExpense" class="text-2xl lg:text-3xl font-semibold tracking-tight mt-2 text-red-500">$0.00</h3>
             </div>
-            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm flex flex-col justify-between">
-                <p class="text-xs font-medium uppercase tracking-wider text-neutral-400">Net Cash Flow</p>
+            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+                <p class="text-xs font-bold uppercase tracking-wider text-neutral-400">Net Flow Balance</p>
                 <h3 id="statNetFlow" class="text-2xl lg:text-3xl font-semibold tracking-tight mt-2">$0.00</h3>
             </div>
-            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm flex flex-col justify-between relative overflow-hidden">
+            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm flex flex-col justify-between relative overflow-hidden hover:shadow-md transition-shadow">
                 <div>
-                    <p class="text-xs font-medium uppercase tracking-wider text-neutral-400">Month Run-Rate Forecast</p>
+                    <p class="text-xs font-bold uppercase tracking-wider text-neutral-400">Timeframe Forecast</p>
                     <h3 id="statForecast" class="text-2xl lg:text-3xl font-semibold tracking-tight mt-2 text-[#0071e3]">$0.00</h3>
                 </div>
             </div>
@@ -114,22 +195,9 @@
 
         <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2 bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm">
-                <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
-                    <h4 class="font-semibold tracking-tight">Timeline Trend</h4>
-                    <div class="flex items-center space-x-2">
-                        <div id="customDateWrapper" class="hidden flex items-center space-x-2">
-                            <input type="date" id="customStart" onchange="renderCharts()" class="bg-neutral-100 dark:bg-[#2c2c2e] text-xs font-medium py-1 px-2.5 rounded-full border-none outline-none text-neutral-700 dark:text-neutral-300">
-                            <span class="text-xs text-neutral-400">to</span>
-                            <input type="date" id="customEnd" onchange="renderCharts()" class="bg-neutral-100 dark:bg-[#2c2c2e] text-xs font-medium py-1 px-2.5 rounded-full border-none outline-none text-neutral-700 dark:text-neutral-300">
-                        </div>
-                        <select id="timelineRange" onchange="handleTimelineRangeChange()" class="bg-neutral-100 dark:bg-[#2c2c2e] text-xs font-medium py-1.5 px-3 rounded-full border-none outline-none focus:ring-2 focus:ring-[#0071e3]/50 cursor-pointer">
-                            <option value="week">This Week</option>
-                            <option value="month" selected>This Month</option>
-                            <option value="year">This Year</option>
-                            <option value="all">All Time</option>
-                            <option value="custom">Custom Range...</option>
-                        </select>
-                    </div>
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="font-semibold tracking-tight">Timeline Dynamic Balance Trend</h4>
+                    <span class="text-[10px] text-neutral-500 uppercase font-bold tracking-widest bg-neutral-100 dark:bg-[#2c2c2e] py-1 px-2.5 rounded-lg" id="chartSecondaryUnitLabel">USD</span>
                 </div>
                 <div id="lineChartContainer" class="h-64 relative w-full rounded-xl overflow-hidden"><canvas id="lineChart"></canvas></div>
             </div>
@@ -143,14 +211,14 @@
             <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm">
                 <div class="flex justify-between items-center mb-4">
                     <h4 class="font-semibold tracking-tight text-sm uppercase text-neutral-400">Volume Allocation Profile</h4>
-                    <span id="allocationPeriodText" class="text-xs text-neutral-500">Selected Period</span>
+                    <span id="allocationPeriodText" class="text-xs text-neutral-500">Selected Window</span>
                 </div>
                 <div id="categoryDistributionWidget" class="space-y-4 max-h-48 overflow-y-auto pr-2 custom-scrollbar"></div>
             </div>
 
             <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm">
                 <div class="flex justify-between items-center mb-4">
-                    <h4 class="font-semibold tracking-tight text-sm uppercase text-neutral-400">Algorithmic Insight Engine</h4>
+                    <h4 class="font-semibold tracking-tight text-sm uppercase text-neutral-400">Contextual Insight Engine</h4>
                 </div>
                 <div id="insightsPanel" class="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar"></div>
             </div>
@@ -160,164 +228,360 @@
             
             <div id="formContainer" class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm admin-element transition-opacity duration-300">
                 <h4 id="formTitle" class="font-semibold tracking-tight mb-4">Add Transaction</h4>
-                <form id="expenseForm" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                <form id="expenseForm" onsubmit="handleFormSubmit(event)" class="space-y-5">
                     <input type="hidden" id="editId">
                     
                     <div>
-                        <label class="block text-xs font-medium text-neutral-400 uppercase tracking-wider mb-1">Transaction Type</label>
+                        <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Transaction Type</label>
                         <div class="grid grid-cols-2 gap-1 bg-neutral-100 dark:bg-[#2c2c2e] p-1 rounded-xl">
-                            <button type="button" id="typeBtnExpense" onclick="setFormType('expense')" class="py-1.5 text-xs font-medium rounded-lg transition-all bg-white dark:bg-[#1c1c1e] text-[#1d1d1f] dark:text-[#f5f5f7] shadow-sm">Expense</button>
-                            <button type="button" id="typeBtnIncome" onclick="setFormType('income')" class="py-1.5 text-xs font-medium rounded-lg transition-all text-neutral-500 dark:text-neutral-400">Income</button>
+                            <button type="button" id="typeBtnExpense" onclick="setFormType('expense')" class="py-2 text-xs font-medium rounded-lg transition-all bg-white dark:bg-[#1c1c1e] text-[#1d1d1f] dark:text-[#f5f5f7] shadow-sm">Expense</button>
+                            <button type="button" id="typeBtnIncome" onclick="setFormType('income')" class="py-2 text-xs font-medium rounded-lg transition-all text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300">Income</button>
                         </div>
                         <input type="hidden" id="expType" value="expense">
                     </div>
 
                     <div>
-                        <label class="block text-xs font-medium text-neutral-400 uppercase tracking-wider mb-1">Amount ($)</label>
-                        <input type="number" step="0.01" id="expAmount" required class="w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-colors">
-                    </div>
-                    <div>
-                        <div class="flex items-center justify-between mb-1">
-                            <label class="block text-xs font-medium text-neutral-400 uppercase tracking-wider">Category</label>
-                            <button type="button" onclick="manageCategories()" class="text-xs text-[#0071e3] hover:underline focus:outline-none">Edit List</button>
+                        <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Amount & Source Currency</label>
+                        <div class="flex space-x-2">
+                            <input type="number" step="0.01" id="expAmount" required class="flex-1 px-4 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-colors">
+                            <select id="expCurrency" required class="w-24 px-2 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white font-semibold text-xs text-[#0071e3] cursor-pointer transition-colors">
+                                <option value="USD">USD ($)</option>
+                                <option value="MMK">MMK (Ks)</option>
+                                <option value="THB">THB (฿)</option>
+                                <option value="CNY">CNY (¥)</option>
+                            </select>
                         </div>
-                        <select id="expCategory" required class="w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-colors"></select>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-neutral-400 uppercase tracking-wider mb-1">Description</label>
-                        <input type="text" id="expDesc" class="w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-colors" placeholder="Salary, dividends, groceries etc.">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Category</label>
+                            <button type="button" onclick="manageCategories()" class="text-[10px] font-bold uppercase tracking-wider text-[#0071e3] hover:underline focus:outline-none">Edit List</button>
+                        </div>
+                        <select id="expCategory" required class="w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-colors cursor-pointer"></select>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-neutral-400 uppercase tracking-wider mb-1">Date</label>
-                        <input type="date" id="expDate" required class="w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-colors">
+                        <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Description</label>
+                        <input type="text" id="expDesc" class="w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-colors" placeholder="Context tag details...">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Date</label>
+                        <input type="date" id="expDate" required class="w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-colors cursor-pointer">
                     </div>
                     <div class="flex space-x-2 pt-2">
-                        <button type="button" id="cancelEditBtn" onclick="resetForm()" class="hidden w-1/3 bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 py-2.5 rounded-xl font-medium text-sm transition-all">Cancel</button>
-                        <button type="submit" id="submitFormBtn" class="flex-1 bg-[#0071e3] text-white py-2.5 rounded-xl font-medium text-sm hover:bg-[#0077ed] transition-all">Save Entry</button>
+                        <button type="button" id="cancelEditBtn" onclick="resetForm()" class="hidden w-1/3 bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 py-3 rounded-xl font-medium text-sm transition-all hover:bg-neutral-300 dark:hover:bg-neutral-700">Cancel</button>
+                        <button type="submit" id="submitFormBtn" class="flex-1 bg-[#0071e3] text-white py-3 rounded-xl font-medium text-sm hover:bg-[#0077ed] transition-all shadow-sm">Save Entry</button>
                     </div>
                 </form>
             </div>
 
-            <div class="lg:col-span-2 bg-white dark:bg-[#1c1c1e] rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm overflow-hidden">
+            <div class="lg:col-span-2 bg-white dark:bg-[#1c1c1e] rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm overflow-hidden flex flex-col h-full">
                 
-                <div class="p-6 border-b border-neutral-100 dark:border-neutral-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                <div class="p-5 border-b border-neutral-100 dark:border-neutral-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-neutral-50/30 dark:bg-black/10">
                     <div class="flex items-center space-x-4">
                         <h4 class="font-semibold tracking-tight">Audit Timeline</h4>
-                        <button id="bulkDeleteBtn" onclick="handleBulkDelete()" class="hidden text-xs font-medium bg-red-500/10 text-red-600 dark:text-red-400 py-1.5 px-3 rounded-full border border-red-500/20 hover:bg-red-500/20 transition-all">Delete Selected (<span id="bulkSelectCount">0</span>)</button>
+                        <button id="bulkDeleteBtn" onclick="handleBulkDelete()" class="hidden text-[10px] uppercase font-bold tracking-wider bg-red-500/10 text-red-600 dark:text-red-400 py-1.5 px-3 rounded-full border border-red-500/20 hover:bg-red-500/20 transition-all">Delete (<span id="bulkSelectCount">0</span>)</button>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
-                        <input type="text" id="searchInput" onkeyup="filterLedger(this.value)" placeholder="Search all fields..." class="text-xs px-4 py-2 bg-neutral-100 dark:bg-[#2c2c2e] rounded-full border border-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071e3]/30 transition-all w-full sm:w-44">
+                        <input type="text" id="searchInput" onkeyup="filterLedger(this.value)" placeholder="Search transactions..." class="text-xs px-4 py-2 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071e3]/30 transition-all w-full sm:w-48">
                         
-                        <div class="flex items-center space-x-1 bg-neutral-100 dark:bg-[#2c2c2e] p-1 rounded-full">
-                            <button onclick="exportData('json')" class="text-[11px] font-medium px-2.5 py-1 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors">JSON ↓</button>
-                            <button onclick="exportData('csv')" class="text-[11px] font-medium px-2.5 py-1 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors">CSV ↓</button>
+                        <div class="flex items-center space-x-1 bg-neutral-100 dark:bg-[#2c2c2e] p-1 rounded-xl">
+                            <button onclick="exportData('json')" class="text-[10px] font-bold uppercase tracking-wider text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 px-2.5 py-1.5 rounded-lg hover:bg-white dark:hover:bg-[#1c1c1e] transition-colors">JSON ↓</button>
+                            <button onclick="exportData('csv')" class="text-[10px] font-bold uppercase tracking-wider text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 px-2.5 py-1.5 rounded-lg hover:bg-white dark:hover:bg-[#1c1c1e] transition-colors">CSV ↓</button>
                         </div>
 
-                        <label class="text-xs font-medium bg-neutral-100 dark:bg-[#2c2c2e] py-2 px-3 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-700 cursor-pointer transition-colors text-center">
+                        <label class="text-[10px] font-bold uppercase tracking-wider text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 bg-neutral-100 dark:bg-[#2c2c2e] py-2 px-3 rounded-xl hover:bg-neutral-200 dark:hover:bg-neutral-700 cursor-pointer transition-colors text-center">
                             Import File <input type="file" id="importFile" accept=".json,.csv" onchange="importData(event)" class="hidden">
                         </label>
                     </div>
                 </div>
 
-                <div class="overflow-x-auto max-h-[420px] custom-scrollbar">
+                <div class="overflow-x-auto flex-1 custom-scrollbar min-h-[300px]">
                     <table class="w-full text-left text-sm whitespace-nowrap">
-                        <thead class="bg-neutral-50 dark:bg-[#2c2c2e] text-xs font-medium uppercase tracking-wider text-neutral-400 sticky top-0 z-10 shadow-sm">
+                        <thead class="bg-neutral-50/80 dark:bg-[#2c2c2e]/80 backdrop-blur-md text-[10px] font-bold uppercase tracking-wider text-neutral-400 sticky top-0 z-10">
                             <tr>
-                                <th class="px-4 py-3 w-4 text-center">
-                                    <input type="checkbox" id="masterCheckbox" onclick="toggleSelectAllRows(this)" class="rounded border-gray-300 dark:border-neutral-700 text-[#0071e3] focus:ring-[#0071e3]">
+                                <th class="px-5 py-4 w-4 text-center border-b border-neutral-200 dark:border-neutral-800">
+                                    <input type="checkbox" id="masterCheckbox" onclick="toggleSelectAllRows(this)" class="rounded border-gray-300 dark:border-neutral-600 text-[#0071e3] focus:ring-[#0071e3] transition-colors">
                                 </th>
-                                <th class="px-6 py-3">Date</th>
-                                <th class="px-6 py-3">Category</th>
-                                <th class="px-6 py-3">Description</th>
-                                <th class="px-6 py-3 text-right">Amount</th>
-                                <th class="px-6 py-3 text-center admin-element transition-opacity duration-300">Action</th>
+                                <th class="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">Date</th>
+                                <th class="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">Category</th>
+                                <th class="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">Description</th>
+                                <th class="px-5 py-4 text-right border-b border-neutral-200 dark:border-neutral-800">Amount (Src)</th>
+                                <th class="px-5 py-4 text-right border-b border-neutral-200 dark:border-neutral-800 text-[#0071e3]" id="thGlobalAmountLabel">Converted (USD)</th>
+                                <th class="px-5 py-4 text-center admin-element transition-opacity duration-300 border-b border-neutral-200 dark:border-neutral-800">Action</th>
                             </tr>
                         </thead>
                         <tbody id="ledgerBody" class="divide-y divide-neutral-100 dark:divide-neutral-800"></tbody>
                     </table>
                 </div>
 
-                <div class="p-4 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#1c1c1e]/50 flex items-center justify-between">
-                    <span id="paginationInfo" class="text-xs text-neutral-500">Showing 0-0 of 0 entries</span>
-                    <div class="flex items-center space-x-1">
-                        <button onclick="changePage(-1)" id="btnPrevPage" class="p-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800 text-xs font-medium hover:bg-neutral-300 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:pointer-events-none transition-colors">← Prev</button>
-                        <button onclick="changePage(1)" id="btnNextPage" class="p-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800 text-xs font-medium hover:bg-neutral-300 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:pointer-events-none transition-colors">Next →</button>
+                <div class="p-4 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-black/20 flex items-center justify-between mt-auto">
+                    <span id="paginationInfo" class="text-xs text-neutral-500 font-medium">Showing 0-0 of 0 entries</span>
+                    <div class="flex items-center space-x-1.5">
+                        <button onclick="changePage(-1)" id="btnPrevPage" class="px-3 py-1.5 rounded-lg bg-white dark:bg-[#2c2c2e] border border-neutral-200 dark:border-neutral-700 text-xs font-medium hover:bg-neutral-50 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:pointer-events-none transition-all shadow-sm text-neutral-600 dark:text-neutral-300">← Prev</button>
+                        <button onclick="changePage(1)" id="btnNextPage" class="px-3 py-1.5 rounded-lg bg-white dark:bg-[#2c2c2e] border border-neutral-200 dark:border-neutral-700 text-xs font-medium hover:bg-neutral-50 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:pointer-events-none transition-all shadow-sm text-neutral-600 dark:text-neutral-300">Next →</button>
                     </div>
                 </div>
             </div>
         </section>
     </main>
 
-    <style>
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.3); border-radius: 10px; }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(115, 115, 115, 0.3); }
-    </style>
-
     <script>
         let _sb = null;
         let _data = [];
-        let _filteredData = [];
+        let _activeWorkspaceData = []; 
+        let _filteredData = [];          
         let _categories = ['Food & Dining', 'Housing', 'Utilities', 'Transportation', 'Entertainment', 'Healthcare', 'Salary', 'Investments'];
         let _isAdminMode = true;
         let _masterPasscode = '';
         let lineChartInstance = null;
         let pieChartInstance = null;
 
-        // Pagination State Global Variables
         let _currentPage = 1;
         const _pageSize = 8;
+        
+        // Comprehensive Multi-Currency Core Foreign Exchange Matrix
+        const _defaultFxRates = { USD: 1, MMK: 3500, THB: 34, CNY: 7.2 };
+        let _fxRates = { ..._defaultFxRates };
+        let _globalDisplayCurrency = 'USD';
 
         document.getElementById('expDate').valueAsDate = new Date();
 
         window.addEventListener('DOMContentLoaded', () => {
             loadCategories();
+            loadFxRates();
+            populateSpecificYearDropdownOptions();
+            
             if (localStorage.getItem('lc_vault')) {
                 document.getElementById('unlockState').classList.remove('hidden');
             } else {
                 document.getElementById('setupState').classList.remove('hidden');
             }
             populateCategories();
-            
-            // Set default custom date pickers to current month range boundaries
-            const now = new Date();
-            const y = now.getFullYear(), m = now.getMonth();
-            document.getElementById('customStart').value = new Date(y, m, 1).toISOString().slice(0,10);
-            document.getElementById('customEnd').value = new Date(y, m + 1, 0).toISOString().slice(0,10);
+            initializeDefaultPickerValues();
         });
 
         // ==========================================
-        // CATEGORY PERSISTENCE & MANAGEMENT
+        // FX EXCHANGE CALCULATION PIPELINES & CUSTOM MARKET RATE
         // ==========================================
-        function saveCategories() {
-            localStorage.setItem('lc_categories', JSON.stringify(_categories));
+        function loadFxRates() {
+            const savedRates = localStorage.getItem('lc_fxRates');
+            if (savedRates) {
+                try {
+                    const parsed = JSON.parse(savedRates);
+                    _fxRates = { ..._defaultFxRates, ...parsed };
+                } catch(e) { console.error(e); }
+            }
+            document.getElementById('inputCustomMMK').value = _fxRates.MMK;
         }
 
-        function loadCategories() {
-            const saved = localStorage.getItem('lc_categories');
-            if (saved) {
-                try { _categories = JSON.parse(saved); } catch (e) { console.error('Failed to parse categories', e); }
+        function toggleFxSettings() {
+            const dropdown = document.getElementById('fxSettingsDropdown');
+            dropdown.classList.toggle('opacity-0');
+            dropdown.classList.toggle('pointer-events-none');
+            dropdown.classList.toggle('scale-95');
+            dropdown.classList.toggle('-translate-y-2');
+        }
+
+        // Close custom FX dropdown when clicking outside
+        window.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('fxSettingsDropdown');
+            const btn = document.getElementById('fxSettingsBtn');
+            if (!dropdown.contains(e.target) && !btn.contains(e.target) && e.target !== btn) {
+                dropdown.classList.add('opacity-0', 'pointer-events-none', 'scale-95', '-translate-y-2');
+            }
+        });
+
+        function applyFxRates() {
+            const mmkVal = parseFloat(document.getElementById('inputCustomMMK').value);
+            if (!isNaN(mmkVal) && mmkVal > 0) {
+                _fxRates.MMK = mmkVal;
+                localStorage.setItem('lc_fxRates', JSON.stringify({ MMK: _fxRates.MMK }));
+                toggleFxSettings(); 
+                
+                // Trigger full workspace matrix refresh
+                updateMetrics();
+                renderCharts();
+                renderLedgerTable(_filteredData);
+            } else {
+                alert("Please enter a valid numeric exchange rate.");
             }
         }
 
+        function resetFxRates() {
+            _fxRates.MMK = _defaultFxRates.MMK;
+            document.getElementById('inputCustomMMK').value = _defaultFxRates.MMK;
+            localStorage.removeItem('lc_fxRates');
+            applyFxRates();
+        }
+
+        function convertCurrency(amt, fromCurrency, toCurrency) {
+            const f = fromCurrency ? fromCurrency.toUpperCase() : 'USD';
+            const t = toCurrency ? toCurrency.toUpperCase() : 'USD';
+            if (f === t) return amt;
+            // Cross-calculate strictly against USD base anchor
+            const amountInUSD = amt / (_fxRates[f] || 1);
+            return amountInUSD * (_fxRates[t] || 1);
+        }
+
+        function formatCurrencyDisplay(amt, currencyCode) {
+            const symbols = { USD: '$', MMK: 'Ks ', THB: '฿', CNY: '¥' };
+            const symbol = symbols[currencyCode] || '$';
+            return `${symbol}${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amt)}`;
+        }
+
+        function handleGlobalCurrencyChange() {
+            _globalDisplayCurrency = document.getElementById('globalCurrencySelect').value;
+            document.getElementById('thGlobalAmountLabel').innerText = `Converted (${_globalDisplayCurrency})`;
+            document.getElementById('chartSecondaryUnitLabel').innerText = _globalDisplayCurrency;
+            
+            updateMetrics();
+            renderCharts();
+            renderLedgerTable(_filteredData);
+        }
+
+        // ==========================================
+        // ANYTIME TEMPORAL CHRONO ENGINE
+        // ==========================================
+        function initializeDefaultPickerValues() {
+            const now = new Date();
+            document.getElementById('customRangeStart').value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+            document.getElementById('customRangeEnd').value = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0,10);
+            
+            document.getElementById('pickerSpecificMonth').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            document.getElementById('pickerSpecificWeek').value = getIsoWeekString(now);
+        }
+
+        function populateSpecificYearDropdownOptions() {
+            const select = document.getElementById('pickerSpecificYear');
+            const currentYear = new Date().getFullYear();
+            let htmlOptions = "";
+            for(let y = currentYear; y >= currentYear - 8; y--) {
+                htmlOptions += `<option value="${y}">${y}</option>`;
+            }
+            select.innerHTML = htmlOptions;
+        }
+
+        function getIsoWeekString(dateObj) {
+            const d = new Date(Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()));
+            const dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+            return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+        }
+
+        function handlePrimaryTimeframeChange() {
+            const selection = document.getElementById('primaryTimeframeSelector').value;
+            
+            document.getElementById('pickerSpecificWeek').classList.add('hidden');
+            document.getElementById('pickerSpecificMonth').classList.add('hidden');
+            document.getElementById('pickerSpecificYear').classList.add('hidden');
+            document.getElementById('pickerCustomRange').classList.add('hidden');
+
+            if(selection === 'specific-week') document.getElementById('pickerSpecificWeek').classList.remove('hidden');
+            if(selection === 'specific-month') document.getElementById('pickerSpecificMonth').classList.remove('hidden');
+            if(selection === 'specific-year') document.getElementById('pickerSpecificYear').classList.remove('hidden');
+            if(selection === 'custom-range') document.getElementById('pickerCustomRange').classList.remove('hidden');
+
+            executeDataPipelineFilter();
+        }
+
+        function executeDataPipelineFilter() {
+            const mode = document.getElementById('primaryTimeframeSelector').value;
+            const titleEl = document.getElementById('activeRangeDisplayTitle');
+            const now = new Date();
+            
+            let filteredSet = [..._data];
+            let windowLabelText = "";
+
+            if (mode === 'current-week') {
+                const startOfWeek = new Date(now);
+                startOfWeek.setDate(now.getDate() - now.getDay());
+                startOfWeek.setHours(0,0,0,0);
+                filteredSet = filteredSet.filter(e => new Date(e.date) >= startOfWeek && new Date(e.date) <= now);
+                windowLabelText = "Active Preset: Current Week Dynamic Window";
+            } 
+            else if (mode === 'current-month') {
+                filteredSet = filteredSet.filter(e => new Date(e.date).getMonth() === now.getMonth() && new Date(e.date).getFullYear() === now.getFullYear());
+                windowLabelText = `Active Preset: Current Month (${now.toLocaleString('default', { month: 'long' })})`;
+            } 
+            else if (mode === 'current-year') {
+                filteredSet = filteredSet.filter(e => new Date(e.date).getFullYear() === now.getFullYear());
+                windowLabelText = `Active Preset: Calendar Year ${now.getFullYear()}`;
+            } 
+            else if (mode === 'all-time') {
+                windowLabelText = "Active Preset: Master Historical Record Balance";
+            } 
+            else if (mode === 'specific-week') {
+                const weekVal = document.getElementById('pickerSpecificWeek').value;
+                if(weekVal) {
+                    filteredSet = filteredSet.filter(e => getIsoWeekString(new Date(e.date)) === weekVal);
+                    windowLabelText = `Isolated Window: Week [${weekVal}]`;
+                }
+            } 
+            else if (mode === 'specific-month') {
+                const monthVal = document.getElementById('pickerSpecificMonth').value;
+                if(monthVal) {
+                    filteredSet = filteredSet.filter(e => e.date.slice(0, 7) === monthVal);
+                    const parsedM = new Date(monthVal + "-02");
+                    windowLabelText = `Isolated Window: ${parsedM.toLocaleString('default', { month: 'long' })} ${parsedM.getFullYear()}`;
+                }
+            } 
+            else if (mode === 'specific-year') {
+                const yearVal = document.getElementById('pickerSpecificYear').value;
+                if(yearVal) {
+                    filteredSet = filteredSet.filter(e => e.date.slice(0, 4) === yearVal);
+                    windowLabelText = `Isolated Window: Calendar Year ${yearVal}`;
+                }
+            } 
+            else if (mode === 'custom-range') {
+                const startStr = document.getElementById('customRangeStart').value;
+                const endStr = document.getElementById('customRangeEnd').value;
+                if(startStr && endStr) {
+                    const s = new Date(startStr);
+                    const p = new Date(endStr);
+                    filteredSet = filteredSet.filter(e => {
+                        const target = new Date(e.date);
+                        return target >= s && target <= p;
+                    });
+                    windowLabelText = `Bounded Range: ${startStr} to ${endStr}`;
+                }
+            }
+
+            titleEl.innerText = windowLabelText;
+            
+            _activeWorkspaceData = filteredSet;
+            _filteredData = [..._activeWorkspaceData];
+            _currentPage = 1;
+
+            updateMetrics();
+            renderCharts();
+            renderLedgerTable(_filteredData);
+        }
+
+        // ==========================================
+        // CATEGORIES LOGIC
+        // ==========================================
+        function saveCategories() { localStorage.setItem('lc_categories', JSON.stringify(_categories)); }
+        function loadCategories() {
+            const saved = localStorage.getItem('lc_categories');
+            if (saved) { try { _categories = JSON.parse(saved); } catch (e) { console.error(e); } }
+        }
         function populateCategories() {
             const select = document.getElementById('expCategory');
             select.innerHTML = _categories.map(c => `<option value="${c}">${c}</option>`).join('');
         }
-
         function manageCategories() {
             if (!_isAdminMode) return alert('Must be in admin mode to edit categories.');
             const res = prompt('Manage Categories (comma separated values):', _categories.join(', '));
             if (res) {
                 _categories = res.split(',').map(s => s.trim()).filter(Boolean);
-                saveCategories(); 
-                populateCategories();
+                saveCategories(); populateCategories();
             }
         }
 
         // ==========================================
-        // THEME MANAGEMENT
+        // THEME CORE TOGGLING
         // ==========================================
         if (window.matchMedia('(prefers-color-scheme: dark)').matches) toggleTheme();
         function toggleTheme() {
@@ -331,15 +595,11 @@
         }
 
         // ==========================================
-        // ENCRYPTION, PBKDF2 SALTING & KEY VERIFICATION
+        // CRYPTO ARCHITECTURE & SYSTEM IGNITION
         // ==========================================
         function deriveCryptoKey(passcode, saltHex) {
-            // Strong PBKDF2 parameters for key derivation
             const salt = CryptoJS.enc.Hex.parse(saltHex);
-            const derivedKey = CryptoJS.PBKDF2(passcode, salt, {
-                keySize: 256 / 32,
-                iterations: 1200
-            });
+            const derivedKey = CryptoJS.PBKDF2(passcode, salt, { keySize: 256 / 32, iterations: 1200 });
             return derivedKey.toString(CryptoJS.enc.Hex);
         }
 
@@ -347,21 +607,16 @@
             const url = document.getElementById('setupUrl').value.trim();
             const key = document.getElementById('setupKey').value.trim();
             const pass = document.getElementById('setupPasscode').value.trim();
-
             if (!url || !key || !pass) return alert('All setup values are required.');
 
             _masterPasscode = pass;
-            
-            // Generate standard random cryptographic 128-bit verification salt hex
             const saltHex = CryptoJS.lib.WordArray.random(128 / 8).toString(CryptoJS.enc.Hex);
             const encryptionKey = deriveCryptoKey(pass, saltHex);
-            
             const payload = JSON.stringify({ url, key });
             const ciphertext = CryptoJS.AES.encrypt(payload, encryptionKey).toString();
             
             localStorage.setItem('lc_vault', ciphertext);
             localStorage.setItem('lc_vault_salt', saltHex);
-            
             initSupabase(url, key);
         }
 
@@ -369,28 +624,20 @@
             const pass = document.getElementById('vaultPasscode').value.trim();
             const ciphertext = localStorage.getItem('lc_vault');
             const saltHex = localStorage.getItem('lc_vault_salt');
-
             try {
                 const encryptionKey = deriveCryptoKey(pass, saltHex);
                 const bytes = CryptoJS.AES.decrypt(ciphertext, encryptionKey);
                 const decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
-
                 if (decryptedData.url && decryptedData.key) {
                     _masterPasscode = pass;
                     initSupabase(decryptedData.url, decryptedData.key);
-                } else {
-                    throw new Error();
-                }
-            } catch (err) {
-                alert('Invalid Admin Passcode. Decryption failed.');
-            }
+                } else { throw new Error(); }
+            } catch (err) { alert('Invalid Admin Passcode. Decryption failed.'); }
         }
 
         function resetVault() {
-            if (confirm('Are you sure you want to clear your saved cloud keys?')) {
-                localStorage.removeItem('lc_vault');
-                localStorage.removeItem('lc_vault_salt');
-                location.reload();
+            if (confirm('Clear saved cloud credentials?')) {
+                localStorage.removeItem('lc_vault'); localStorage.removeItem('lc_vault_salt'); location.reload();
             }
         }
 
@@ -398,42 +645,31 @@
             try {
                 _sb = window.supabase.createClient(url, key);
                 document.getElementById('vaultModal').classList.add('hidden');
-                _isAdminMode = true;
-                evalAdminInterfaceElements();
+                _isAdminMode = true; evalAdminInterfaceElements();
                 syncRead();
-            } catch (e) {
-                alert('Supabase client ignition crash: ' + e.message);
-            }
+            } catch (e) { alert('Supabase Client Engine failure: ' + e.message); }
         }
 
         function lockAdminSession() {
             if (!_isAdminMode) {
                 const pass = prompt('Enter admin passcode to unlock editing:');
-                if (pass === _masterPasscode && pass !== '') {
-                    _isAdminMode = true;
-                    evalAdminInterfaceElements();
-                } else if (pass !== null) {
-                    alert('Incorrect passcode.');
-                }
-            } else {
-                _isAdminMode = false;
-                evalAdminInterfaceElements();
-            }
+                if (pass === _masterPasscode && pass !== '') { _isAdminMode = true; evalAdminInterfaceElements(); }
+                else if (pass !== null) { alert('Incorrect passcode.'); }
+            } else { _isAdminMode = false; evalAdminInterfaceElements(); }
         }
 
         function evalAdminInterfaceElements() {
             const btn = document.getElementById('adminStatusBtn');
             const targetElements = document.querySelectorAll('.admin-element');
             const container = document.getElementById('formContainer');
-            
             if (_isAdminMode) {
                 btn.innerText = "🔓 Admin Unlocked";
-                btn.className = "text-xs bg-green-500/10 text-green-600 dark:text-green-400 px-4 py-2 rounded-full font-medium border border-green-500/20 transition-all shadow-sm";
+                btn.className = "hidden sm:block text-[10px] font-bold uppercase tracking-wider bg-green-500/10 text-green-600 dark:text-green-400 px-3 py-1.5 rounded-lg border border-green-500/20 transition-all shadow-sm";
                 container.classList.remove('opacity-40', 'pointer-events-none');
                 targetElements.forEach(t => t.classList.remove('opacity-0', 'pointer-events-none'));
             } else {
                 btn.innerText = "🔒 Locked (Viewer)";
-                btn.className = "text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 px-4 py-2 rounded-full font-medium border border-amber-500/20 transition-all shadow-sm";
+                btn.className = "hidden sm:block text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 px-3 py-1.5 rounded-lg border border-amber-500/20 transition-all shadow-sm";
                 container.classList.add('opacity-40', 'pointer-events-none');
                 targetElements.forEach(t => { if(t.tagName !== 'DIV') t.classList.add('opacity-0', 'pointer-events-none'); });
                 resetForm();
@@ -441,114 +677,83 @@
             renderLedgerTable(_filteredData);
         }
 
-        function setFormType(type) {
-            document.getElementById('expType').value = type;
-            const btnExpense = document.getElementById('typeBtnExpense');
-            const btnIncome = document.getElementById('typeBtnIncome');
-            
-            if(type === 'expense') {
-                btnExpense.className = "py-1.5 text-xs font-medium rounded-lg transition-all bg-white dark:bg-[#1c1c1e] text-[#1d1d1f] dark:text-[#f5f5f7] shadow-sm";
-                btnIncome.className = "py-1.5 text-xs font-medium rounded-lg transition-all text-neutral-500 dark:text-neutral-400";
-            } else {
-                btnIncome.className = "py-1.5 text-xs font-medium rounded-lg transition-all bg-white dark:bg-[#1c1c1e] text-[#1d1d1f] dark:text-[#f5f5f7] shadow-sm";
-                btnExpense.className = "py-1.5 text-xs font-medium rounded-lg transition-all text-neutral-500 dark:text-neutral-400";
-            }
-        }
-
         // ==========================================
-        // DATA SYNC & HIGH LEVEL CALCULATIONS
+        // SYNCHRONIZED CALCULATION ENGINE
         // ==========================================
         async function syncRead() {
             if (!_sb) return;
             const { data, error } = await _sb.from('expenses').select('*').order('date', { ascending: false });
             if (error) return console.error(error);
-            
             _data = data;
-            _filteredData = [..._data];
             
-            document.getElementById('searchInput').value = '';
-            _currentPage = 1;
-            
-            updateMetrics();
-            renderCharts(); 
-            renderLedgerTable(_filteredData);
+            executeDataPipelineFilter();
             document.getElementById('syncBadge').innerText = `Synced: ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}`;
         }
 
         function updateMetrics() {
-            const now = new Date();
-            let monthIncome = 0, monthExpense = 0;
+            let totalIncome = 0, totalExpense = 0;
 
-            _data.forEach(e => {
-                const amt = parseFloat(e.amount);
-                const d = new Date(e.date);
-                const type = e.type || 'expense'; // Default baseline fallback for vintage tables
-
-                if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) {
-                    if (type === 'income') monthIncome += amt;
-                    else monthExpense += amt;
-                }
+            _activeWorkspaceData.forEach(e => {
+                const rawAmount = parseFloat(e.amount);
+                const sourceCurrency = e.currency || 'USD';
+                const type = e.type || 'expense';
+                
+                const convertedAmount = convertCurrency(rawAmount, sourceCurrency, _globalDisplayCurrency);
+                if (type === 'income') totalIncome += convertedAmount;
+                else totalExpense += convertedAmount;
             });
 
-            const netCashFlow = monthIncome - monthExpense;
+            const netCashFlow = totalIncome - totalExpense;
 
-            const format = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
-            document.getElementById('statIncome').innerText = format(monthIncome);
-            document.getElementById('statExpense').innerText = format(monthExpense);
+            document.getElementById('statIncome').innerText = formatCurrencyDisplay(totalIncome, _globalDisplayCurrency);
+            document.getElementById('statExpense').innerText = formatCurrencyDisplay(totalExpense, _globalDisplayCurrency);
             
             const netFlowEl = document.getElementById('statNetFlow');
-            netFlowEl.innerText = format(netCashFlow);
-            if(netCashFlow >= 0) {
-                netFlowEl.className = "text-2xl lg:text-3xl font-semibold tracking-tight mt-2 text-green-600 dark:text-green-400";
-            } else {
-                netFlowEl.className = "text-2xl lg:text-3xl font-semibold tracking-tight mt-2 text-red-500";
-            }
+            netFlowEl.innerText = formatCurrencyDisplay(netCashFlow, _globalDisplayCurrency);
+            netFlowEl.className = netCashFlow >= 0 
+                ? "text-2xl lg:text-3xl font-semibold tracking-tight mt-2 text-green-600 dark:text-green-400" 
+                : "text-2xl lg:text-3xl font-semibold tracking-tight mt-2 text-red-500";
             
-            // Algorithmic Runtime Execution: Predictive Month Burn Rate Forecast
-            document.getElementById('statForecast').innerText = format(calculateMonthForecast(monthExpense));
+            document.getElementById('statForecast').innerText = formatCurrencyDisplay(calculateContextualWindowForecast(totalExpense), _globalDisplayCurrency);
         }
 
-        function calculateMonthForecast(currentMonthSpend) {
+        function calculateContextualWindowForecast(currentWindowSpend) {
+            const mode = document.getElementById('primaryTimeframeSelector').value;
             const now = new Date();
-            const currentDay = now.getDate();
-            // Calculate total days inside active month context
-            const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
             
-            if (currentDay === 0) return currentMonthSpend;
-            const dailyVelocity = currentMonthSpend / currentDay;
-            return dailyVelocity * totalDays;
-        }
-
-        function handleTimelineRangeChange() {
-            const filter = document.getElementById('timelineRange').value;
-            const customWrapper = document.getElementById('customDateWrapper');
-            if (filter === 'custom') {
-                customWrapper.classList.remove('hidden');
-            } else {
-                customWrapper.classList.add('hidden');
+            if (mode === 'current-month' || mode === 'specific-month') {
+                const currentDay = mode === 'current-month' ? now.getDate() : 15;
+                const totalDays = mode === 'current-month' ? new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() : 30;
+                return (currentWindowSpend / (currentDay || 1)) * totalDays;
+            } 
+            if (mode === 'current-year' || mode === 'specific-year') {
+                const currentMonthIdx = mode === 'current-year' ? (now.getMonth() + 1) : 6;
+                return (currentWindowSpend / currentMonthIdx) * 12;
             }
-            _currentPage = 1;
-            renderCharts();
+            return currentWindowSpend;
         }
 
         // ==========================================
-        // ADVANCED ANALYTICS ENGINE & CHARTS
+        // DYNAMIC CONTEXT INSIGHTS & CHARTS
         // ==========================================
         function renderTextualInfographics(dataset) {
             const container = document.getElementById('categoryDistributionWidget'); 
             if (!container) return;
 
-            // Filter down strictly to expenses for asset profiling allocations
             const expensesOnly = dataset.filter(e => (e.type || 'expense') === 'expense');
-            const total = expensesOnly.reduce((sum, e) => sum + parseFloat(e.amount), 0);
-            
+            let total = 0;
+            const catMap = {};
+
+            expensesOnly.forEach(e => {
+                const converted = convertCurrency(parseFloat(e.amount), e.currency || 'USD', _globalDisplayCurrency);
+                total += converted;
+                catMap[e.category] = (catMap[e.category] || 0) + converted;
+            });
+
             if (total === 0) {
-                container.innerHTML = '<p class="text-xs text-neutral-400 italic">No expense allocations to display for this period.</p>';
+                container.innerHTML = '<p class="text-xs text-neutral-400 italic">No allocations inside active temporal query limits.</p>';
                 return;
             }
-
-            const catMap = {};
-            expensesOnly.forEach(e => { catMap[e.category] = (catMap[e.category] || 0) + parseFloat(e.amount); });
 
             const breakdowns = Object.keys(catMap).map(cat => ({
                 category: cat,
@@ -560,9 +765,9 @@
                 <div class="space-y-1.5 group">
                     <div class="flex justify-between text-xs font-medium">
                         <span class="text-neutral-700 dark:text-neutral-300">${item.category}</span>
-                        <span class="text-neutral-500 group-hover:text-[#0071e3] transition-colors">${item.percentage}% <span class="font-normal opacity-60">($${item.amount.toFixed(2)})</span></span>
+                        <span class="text-neutral-500 group-hover:text-[#0071e3] transition-colors">${item.percentage}% <span class="font-normal opacity-60">(${formatCurrencyDisplay(item.amount, _globalDisplayCurrency)})</span></span>
                     </div>
-                    <div class="w-full bg-neutral-200/60 dark:bg-neutral-800/60 h-2 rounded-full overflow-hidden">
+                    <div class="w-full bg-neutral-200/60 dark:bg-neutral-800/60 h-2.5 rounded-full overflow-hidden shadow-inner">
                         <div class="bg-[#0071e3] h-full rounded-full transition-all duration-700 ease-out" style="width: ${item.percentage}%"></div>
                     </div>
                 </div>
@@ -574,94 +779,82 @@
             if (!container) return;
             
             const expensesOnly = dataset.filter(e => (e.type || 'expense') === 'expense');
-
             if (!expensesOnly || expensesOnly.length === 0) {
-                container.innerHTML = `<p class="text-xs text-neutral-400 italic">Not enough expense metrics to track anomaly patterns.</p>`;
+                container.innerHTML = `<p class="text-xs text-neutral-400 italic">No expense entries found in this timeframe to generate context insights.</p>`;
                 return;
             }
 
-            const totalAmount = expensesOnly.reduce((sum, e) => sum + parseFloat(e.amount), 0);
-            const avgTransaction = totalAmount / expensesOnly.length;
-            const spikeThreshold = avgTransaction * 2.5; 
+            let totalConversions = 0;
+            const convertedItems = expensesOnly.map(e => {
+                const amt = convertCurrency(parseFloat(e.amount), e.currency || 'USD', _globalDisplayCurrency);
+                totalConversions += amt;
+                return { ...e, convertedAmount: amt };
+            });
 
-            const singleSpikes = expensesOnly.filter(e => parseFloat(e.amount) > spikeThreshold);
+            const windowAvgTransaction = totalConversions / expensesOnly.length;
+            const spikeThreshold = windowAvgTransaction * 2.2;
+            const deviations = convertedItems.filter(e => e.convertedAmount > spikeThreshold);
 
-            if (singleSpikes.length === 0) {
-                container.innerHTML = `
-                    <div class="flex items-center space-x-2 text-green-600 dark:text-green-500">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <p class="text-xs font-medium">All behaviors match historical baselines.</p>
+            let htmlString = "";
+
+            let incAmt = 0, expAmt = 0;
+            dataset.forEach(e => {
+                const converted = convertCurrency(parseFloat(e.amount), e.currency || 'USD', _globalDisplayCurrency);
+                if((e.type || 'expense') === 'income') incAmt += converted;
+                else expAmt += converted;
+            });
+            
+            if(incAmt > 0) {
+                const rate = (((incAmt - expAmt) / incAmt) * 100).toFixed(1);
+                htmlString += `
+                    <div class="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-700 dark:text-blue-400 hover:shadow-sm transition-shadow">
+                        <strong class="font-semibold block mb-0.5">Timeframe Savings Rate</strong>
+                        You retained **${rate}%** of income streams processed inside this selection boundaries.
                     </div>`;
-                return;
             }
 
-            container.innerHTML = singleSpikes.slice(0, 4).map(spike => `
-                <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-700 dark:text-amber-400 flex items-start space-x-2.5">
-                    <span class="text-base leading-none">⚠️</span>
-                    <div class="leading-relaxed">
-                        <strong class="font-semibold block mb-0.5">Anomaly Deviation Detected</strong>
-                        Spent $${parseFloat(spike.amount).toFixed(2)} on <span class="font-medium">${spike.category}</span> (${spike.date}). Highly exceeds average baseline.
+            if (deviations.length === 0) {
+                htmlString += `
+                    <div class="flex items-center space-x-2 text-green-600 dark:text-green-500 pt-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <p class="text-xs font-medium">No sharp deviation anomalies inside this active timeframe window.</p>
+                    </div>`;
+            } else {
+                htmlString += deviations.slice(0, 3).map(item => `
+                    <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-700 dark:text-amber-400 flex items-start space-x-2.5 hover:shadow-sm transition-shadow">
+                        <span class="text-base leading-none">⚠️</span>
+                        <div class="leading-relaxed">
+                            <strong class="font-semibold block mb-0.5">Timeframe Deviation Spike</strong>
+                            Spent ${formatCurrencyDisplay(item.convertedAmount, _globalDisplayCurrency)} on <span class="font-medium">${item.category}</span> (${item.date}). Exceeds timeframe transactional average baseline.
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `).join('');
+            }
+            container.innerHTML = htmlString;
         }
 
         function renderCharts() {
-            const filter = document.getElementById('timelineRange').value;
             const isDark = document.documentElement.classList.contains('dark');
             const textColor = isDark ? '#a1a1aa' : '#737373';
             const gridColor = isDark ? '#27272a' : '#e5e5e5';
 
-            let timelineFiltered = [..._data];
-            const now = new Date();
-
-            if (filter === 'week') {
-                const wk = new Date(now.setDate(now.getDate() - now.getDay()));
-                timelineFiltered = timelineFiltered.filter(e => new Date(e.date) >= wk);
-            } else if (filter === 'month') {
-                timelineFiltered = timelineFiltered.filter(e => new Date(e.date).getMonth() === now.getMonth() && new Date(e.date).getFullYear() === now.getFullYear());
-            } else if (filter === 'year') {
-                timelineFiltered = timelineFiltered.filter(e => new Date(e.date).getFullYear() === now.getFullYear());
-            } else if (filter === 'custom') {
-                const startVal = document.getElementById('customStart').value;
-                const endVal = document.getElementById('customEnd').value;
-                if(startVal && endVal) {
-                    const start = new Date(startVal);
-                    const end = new Date(endVal);
-                    timelineFiltered = timelineFiltered.filter(e => {
-                        const target = new Date(e.date);
-                        return target >= start && target <= end;
-                    });
-                }
-            }
-
-            // UI Label Synchronization Update
-            document.getElementById('allocationPeriodText').innerText = filter === 'all' ? 'All Time' : (filter === 'custom' ? 'Custom Range' : `This ${filter.charAt(0).toUpperCase() + filter.slice(1)}`);
-            
-            renderTextualInfographics(timelineFiltered);
-            detectSpendingSpikes(timelineFiltered);
-
             const lineContainer = document.getElementById('lineChartContainer');
             const pieContainer = document.getElementById('pieChartContainer');
 
-            if (timelineFiltered.length === 0) {
-                lineContainer.classList.add('empty-chart');
-                pieContainer.classList.add('empty-chart');
+            if (_activeWorkspaceData.length === 0) {
+                lineContainer.classList.add('empty-chart'); pieContainer.classList.add('empty-chart');
                 if (lineChartInstance) lineChartInstance.destroy();
                 if (pieChartInstance) pieChartInstance.destroy();
                 return;
             } else {
-                lineContainer.classList.remove('empty-chart');
-                pieContainer.classList.remove('empty-chart');
+                lineContainer.classList.remove('empty-chart'); pieContainer.classList.remove('empty-chart');
             }
 
-            // Net Cash Flow Tracking configuration for Line Chart Canvas
             const timelineMap = {};
-            timelineFiltered.forEach(e => { 
-                const amt = parseFloat(e.amount);
-                const type = e.type || 'expense';
-                const delta = (type === 'income') ? amt : -amt;
-                timelineMap[e.date] = (timelineMap[e.date] || 0) + delta; 
+            _activeWorkspaceData.forEach(e => {
+                const amt = convertCurrency(parseFloat(e.amount), e.currency || 'USD', _globalDisplayCurrency);
+                const delta = (e.type || 'expense') === 'income' ? amt : -amt;
+                timelineMap[e.date] = (timelineMap[e.date] || 0) + delta;
             });
             const sortedDates = Object.keys(timelineMap).sort((a,b) => new Date(a) - new Date(b));
             const timelineData = sortedDates.map(d => timelineMap[d]);
@@ -672,36 +865,30 @@
                 data: {
                     labels: sortedDates,
                     datasets: [{
-                        label: 'Net Balance Delta',
                         data: timelineData,
                         borderColor: '#0071e3',
                         backgroundColor: isDark ? 'rgba(0, 113, 227, 0.1)' : 'rgba(0, 113, 227, 0.05)',
-                        borderWidth: 3,
-                        pointRadius: 3,
-                        pointBackgroundColor: '#0071e3',
-                        tension: 0.4,
-                        fill: true
+                        borderWidth: 3, pointRadius: 3, pointBackgroundColor: '#0071e3', tension: 0.4, fill: true
                     }]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
                         x: { grid: { color: gridColor }, ticks: { color: textColor, maxTicksLimit: 7 } },
                         y: { grid: { color: gridColor, borderDash: [4, 4] }, ticks: { color: textColor } }
-                    },
-                    interaction: { mode: 'index', intersect: false }
+                    }
                 }
             });
 
-            // Isolate Expenses cleanly for the Category Allocation Wheel
-            const expensesOnly = timelineFiltered.filter(e => (e.type || 'expense') === 'expense');
+            const expensesOnly = _activeWorkspaceData.filter(e => (e.type || 'expense') === 'expense');
             const catMap = {};
-            expensesOnly.forEach(e => { catMap[e.category] = (catMap[e.category] || 0) + parseFloat(e.amount); });
+            expensesOnly.forEach(e => {
+                const converted = convertCurrency(parseFloat(e.amount), e.currency || 'USD', _globalDisplayCurrency);
+                catMap[e.category] = (catMap[e.category] || 0) + converted;
+            });
 
             if(pieChartInstance) pieChartInstance.destroy();
-            
             if(Object.keys(catMap).length === 0) {
                 pieContainer.classList.add('empty-chart');
             } else {
@@ -713,39 +900,37 @@
                         datasets: [{
                             data: Object.values(catMap),
                             backgroundColor: ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#0071e3', '#5856d6', '#af52de'],
-                            borderWidth: 0,
-                            hoverOffset: 4
+                            borderWidth: 0, hoverOffset: 4
                         }]
                     },
                     options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '70%',
-                        plugins: { 
-                            legend: { position: 'bottom', labels: { color: textColor, boxWidth: 10, padding: 12, usePointStyle: true } }
-                        }
+                        responsive: true, maintainAspectRatio: false, cutout: '75%',
+                        plugins: { legend: { position: 'bottom', labels: { color: textColor, boxWidth: 10, padding: 10, usePointStyle: true } } }
                     }
                 });
             }
+
+            renderTextualInfographics(_activeWorkspaceData);
+            detectSpendingSpikes(_activeWorkspaceData);
         }
 
         // ==========================================
-        // SEARCH, UI FILTERING & PAGINATION
+        // WORKSPACE MATRIX FILTRATION & PAGINATION
         // ==========================================
         function filterLedger(searchTerm) {
             const term = searchTerm.toLowerCase().trim();
             if (!term) {
-                _filteredData = [..._data];
+                _filteredData = [..._activeWorkspaceData];
             } else {
-                _filteredData = _data.filter(e => 
+                _filteredData = _activeWorkspaceData.filter(e => 
                     e.category.toLowerCase().includes(term) || 
                     (e.description && e.description.toLowerCase().includes(term)) ||
                     e.amount.toString().includes(term) ||
-                    (e.type && e.type.toLowerCase().includes(term)) ||
+                    (e.currency && e.currency.toLowerCase().includes(term)) ||
                     e.date.includes(term)
                 );
             }
-            _currentPage = 1; // Reset window view back to first index page
+            _currentPage = 1;
             renderLedgerTable(_filteredData);
         }
 
@@ -754,13 +939,10 @@
             document.getElementById('masterCheckbox').checked = false;
             
             if (dataArray.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-xs text-neutral-400 italic">No records found matching criterion.</td></tr>`;
-                updatePaginationControls(0);
-                evaluateBulkActionToolbarState();
-                return;
+                tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-10 text-center text-xs text-neutral-400 italic">No transactions index inside constraints.</td></tr>`;
+                updatePaginationControls(0); evaluateBulkActionToolbarState(); return;
             }
 
-            // Client-side array slicing for local calculation performance
             const totalRecords = dataArray.length;
             const startIndex = (_currentPage - 1) * _pageSize;
             const endIndex = Math.min(startIndex + _pageSize, totalRecords);
@@ -769,20 +951,28 @@
             tbody.innerHTML = paginatedSlice.map(e => {
                 const type = e.type || 'expense';
                 const isIncome = type === 'income';
+                const rawAmt = parseFloat(e.amount);
+                const sourceCurr = e.currency || 'USD';
+                
+                const convertedGlobalVal = convertCurrency(rawAmt, sourceCurr, _globalDisplayCurrency);
+
                 return `
-                    <tr class="hover:bg-neutral-50 dark:hover:bg-neutral-800/40 transition-colors">
-                        <td class="px-4 py-4 text-center">
-                            <input type="checkbox" data-id="${e.id}" onclick="handleRowCheckboxClick()" class="row-checkbox rounded border-gray-300 dark:border-neutral-700 text-[#0071e3] focus:ring-[#0071e3]">
+                    <tr class="hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 transition-colors group">
+                        <td class="px-5 py-3.5 text-center">
+                            <input type="checkbox" data-id="${e.id}" onclick="handleRowCheckboxClick()" class="row-checkbox rounded border-gray-300 dark:border-neutral-600 text-[#0071e3] focus:ring-[#0071e3] transition-colors">
                         </td>
-                        <td class="px-6 py-4 font-medium">${e.date}</td>
-                        <td class="px-6 py-4"><span class="px-2.5 py-1 text-xs font-medium rounded-full bg-neutral-100 dark:bg-neutral-800">${e.category}</span></td>
-                        <td class="px-6 py-4 text-neutral-500 dark:text-neutral-400 max-w-xs truncate" title="${e.description || ''}">${e.description || '—'}</td>
-                        <td class="px-6 py-4 text-right font-semibold ${isIncome ? 'text-green-600 dark:text-green-400' : 'text-[#1d1d1f] dark:text-[#f5f5f7]'}">
-                            ${isIncome ? '+' : '-'}$${parseFloat(e.amount).toFixed(2)}
+                        <td class="px-5 py-3.5 font-medium text-neutral-700 dark:text-neutral-300">${e.date}</td>
+                        <td class="px-5 py-3.5"><span class="px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded-full bg-neutral-200/60 dark:bg-[#1c1c1e] text-neutral-600 dark:text-neutral-400 group-hover:bg-white dark:group-hover:bg-[#2c2c2e] border border-neutral-300/30 transition-all">${e.category}</span></td>
+                        <td class="px-5 py-3.5 text-neutral-500 dark:text-neutral-400 max-w-xs truncate" title="${e.description || ''}">${e.description || '—'}</td>
+                        <td class="px-5 py-3.5 text-right font-medium text-neutral-500 dark:text-neutral-500">
+                            ${formatCurrencyDisplay(rawAmt, sourceCurr)}
                         </td>
-                        <td class="px-6 py-4 text-center admin-element ${ _isAdminMode ? 'opacity-100' : 'opacity-0 pointer-events-none' }">
-                            <button onclick="prepEdit('${e.id}')" class="text-xs text-[#0071e3] hover:underline mr-3 font-medium">Edit</button>
-                            <button onclick="deleteItem('${e.id}')" class="text-xs text-red-500 hover:underline font-medium">Delete</button>
+                        <td class="px-5 py-3.5 text-right font-semibold ${isIncome ? 'text-green-600 dark:text-green-400' : 'text-[#1d1d1f] dark:text-[#f5f5f7]'}">
+                            ${isIncome ? '+' : '-'}${formatCurrencyDisplay(convertedGlobalVal, _globalDisplayCurrency)}
+                        </td>
+                        <td class="px-5 py-3.5 text-center admin-element ${ _isAdminMode ? 'opacity-100' : 'opacity-0 pointer-events-none' }">
+                            <button onclick="prepEdit('${e.id}')" class="text-[10px] uppercase font-bold tracking-wider text-[#0071e3] hover:underline mr-3 transition-all">Edit</button>
+                            <button onclick="deleteItem('${e.id}')" class="text-[10px] uppercase font-bold tracking-wider text-red-500 hover:underline transition-all">Delete</button>
                         </td>
                     </tr>
                 `;
@@ -796,75 +986,60 @@
             const infoLabel = document.getElementById('paginationInfo');
             const btnPrev = document.getElementById('btnPrevPage');
             const btnNext = document.getElementById('btnNextPage');
-
             if(totalRecords === 0) {
-                infoLabel.innerText = "Showing 0-0 of 0 entries";
-                btnPrev.disabled = true;
-                btnNext.disabled = true;
-                return;
+                infoLabel.innerText = "Showing 0-0 of 0 entries"; btnPrev.disabled = true; btnNext.disabled = true; return;
             }
-
             infoLabel.innerText = `Showing ${start + 1}-${end} of ${totalRecords} entries`;
             btnPrev.disabled = (_currentPage === 1);
             btnNext.disabled = (end >= totalRecords);
         }
 
-        function changePage(direction) {
-            _currentPage += direction;
-            renderLedgerTable(_filteredData);
-        }
-
-        // ==========================================
-        // INTERACTIVE BULK ACTION PROCESSORS
-        // ==========================================
+        function changePage(direction) { _currentPage += direction; renderLedgerTable(_filteredData); }
         function toggleSelectAllRows(masterNode) {
-            const checkboxes = document.querySelectorAll('.row-checkbox');
-            checkboxes.forEach(cb => cb.checked = masterNode.checked);
+            document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = masterNode.checked);
             evaluateBulkActionToolbarState();
         }
-
         function handleRowCheckboxClick() {
-            const totalBoxes = document.querySelectorAll('.row-checkbox').length;
-            const checkedBoxes = document.querySelectorAll('.row-checkbox:checked').length;
-            document.getElementById('masterCheckbox').checked = (totalBoxes === checkedBoxes);
+            const total = document.querySelectorAll('.row-checkbox').length;
+            const checked = document.querySelectorAll('.row-checkbox:checked').length;
+            document.getElementById('masterCheckbox').checked = (total === checked);
             evaluateBulkActionToolbarState();
         }
-
         function evaluateBulkActionToolbarState() {
-            const selectedCount = document.querySelectorAll('.row-checkbox:checked').length;
+            const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
             const bulkBtn = document.getElementById('bulkDeleteBtn');
-            const countLabel = document.getElementById('bulkSelectCount');
-
-            if(_isAdminMode && selectedCount > 0) {
-                bulkBtn.classList.remove('hidden');
-                countLabel.innerText = selectedCount;
-            } else {
-                bulkBtn.classList.add('hidden');
-            }
+            if(_isAdminMode && checkedCount > 0) {
+                bulkBtn.classList.remove('hidden'); document.getElementById('bulkSelectCount').innerText = checkedCount;
+            } else { bulkBtn.classList.add('hidden'); }
         }
 
         async function handleBulkDelete() {
             if (!_isAdminMode || !_sb) return;
             const targetCheckedBoxes = document.querySelectorAll('.row-checkbox:checked');
             const idsToDelete = Array.from(targetCheckedBoxes).map(cb => cb.getAttribute('data-id'));
+            if (idsToDelete.length === 0 || !confirm(`Permanently clear these ${idsToDelete.length} transactions from the cloud?`)) return;
 
-            if (idsToDelete.length === 0) return;
-            
-            if (!confirm(`Are you certain you want to permanently clear these ${idsToDelete.length} records from cloud infrastructure?`)) return;
-
-            // Execute a broad array deletion in a single atomic database query
             const { error } = await _sb.from('expenses').delete().in('id', idsToDelete);
-            
-            if (error) {
-                alert('Bulk transaction clear operation failure: ' + error.message);
-            } else {
-                await syncRead();
-            }
+            if (error) alert('Bulk failure: ' + error.message);
+            else await syncRead();
         }
 
         // ==========================================
-        // CRUD WORKFLOW OPERATIONS
+        // TRANSACTION MUTATION OPERATIONS
         // ==========================================
+        function setFormType(type) {
+            document.getElementById('expType').value = type;
+            const btnExpense = document.getElementById('typeBtnExpense');
+            const btnIncome = document.getElementById('typeBtnIncome');
+            if(type === 'expense') {
+                btnExpense.className = "py-2 text-xs font-medium rounded-lg transition-all bg-white dark:bg-[#1c1c1e] text-[#1d1d1f] dark:text-[#f5f5f7] shadow-sm";
+                btnIncome.className = "py-2 text-xs font-medium rounded-lg transition-all text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300";
+            } else {
+                btnIncome.className = "py-2 text-xs font-medium rounded-lg transition-all bg-white dark:bg-[#1c1c1e] text-[#1d1d1f] dark:text-[#f5f5f7] shadow-sm";
+                btnExpense.className = "py-2 text-xs font-medium rounded-lg transition-all text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300";
+            }
+        }
+
         async function handleFormSubmit(e) {
             e.preventDefault();
             if (!_isAdminMode || !_sb) return;
@@ -872,6 +1047,7 @@
             const id = document.getElementById('editId').value;
             const rowPayload = {
                 amount: parseFloat(document.getElementById('expAmount').value),
+                currency: document.getElementById('expCurrency').value,
                 category: document.getElementById('expCategory').value,
                 description: document.getElementById('expDesc').value.trim(),
                 date: document.getElementById('expDate').value,
@@ -880,22 +1056,16 @@
 
             let err = null;
             const submitBtn = document.getElementById('submitFormBtn');
-            const originalText = submitBtn.innerText;
-            submitBtn.innerText = "Saving...";
             submitBtn.disabled = true;
 
             if (id) {
-                const { error } = await _sb.from('expenses').update(rowPayload).eq('id', id);
-                err = error;
+                const { error } = await _sb.from('expenses').update(rowPayload).eq('id', id); err = error;
             } else {
-                const { error } = await _sb.from('expenses').insert([rowPayload]);
-                err = error;
+                const { error } = await _sb.from('expenses').insert([rowPayload]); err = error;
             }
 
-            submitBtn.innerText = originalText;
             submitBtn.disabled = false;
-
-            if (err) alert('Data write error: ' + err.message);
+            if (err) alert('Write operational error: ' + err.message);
             else { resetForm(); await syncRead(); }
         }
 
@@ -904,22 +1074,20 @@
             if (!item) return;
             document.getElementById('editId').value = item.id;
             document.getElementById('expAmount').value = item.amount;
+            document.getElementById('expCurrency').value = item.currency || 'USD';
             document.getElementById('expCategory').value = item.category;
             document.getElementById('expDesc').value = item.description || '';
             document.getElementById('expDate').value = item.date;
-            
             setFormType(item.type || 'expense');
             
             document.getElementById('formTitle').innerText = "Modify Transaction";
             document.getElementById('submitFormBtn').innerText = "Update Entry";
             document.getElementById('cancelEditBtn').classList.remove('hidden');
-            
             document.getElementById('formContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         function resetForm() {
-            document.getElementById('editId').value = '';
-            document.getElementById('expenseForm').reset();
+            document.getElementById('editId').value = ''; document.getElementById('expenseForm').reset();
             document.getElementById('expDate').valueAsDate = new Date();
             document.getElementById('formTitle').innerText = "Add Transaction";
             document.getElementById('submitFormBtn').innerText = "Save Entry";
@@ -928,117 +1096,82 @@
         }
 
         async function deleteItem(id) {
-            if (!_isAdminMode || !confirm('Are you sure you want to permanently delete this record?')) return;
+            if (!_isAdminMode || !confirm('Permanently delete this record?')) return;
             const { error } = await _sb.from('expenses').delete().eq('id', id);
             if (error) alert('Deletion error: ' + error.message);
             else await syncRead();
         }
 
         // ==========================================
-        // EXPORT & IMPORT ENGINE PIPELINES (JSON / CSV)
+        // SPREADSHEET ENGINE EXCHANGE INTERFACES
         // ==========================================
         function exportData(format = 'json') {
-            if (_data.length === 0) return alert("No data available to export.");
-            
-            let blobContent = "";
-            let fileExtension = "";
-            let mimeType = "";
+            if (_activeWorkspaceData.length === 0) return alert("No active workspace items available to export.");
+            let blobContent = "", fileExtension = "", mimeType = "";
 
             if (format === 'json') {
-                blobContent = JSON.stringify(_data, null, 2);
-                fileExtension = 'json';
-                mimeType = 'application/json';
+                blobContent = JSON.stringify(_activeWorkspaceData, null, 2); fileExtension = 'json'; mimeType = 'application/json';
             } else if (format === 'csv') {
-                // Build robust standardized raw CSV structural table string output
-                const headers = ["date", "type", "category", "description", "amount"];
+                const headers = ["date", "type", "category", "description", "amount", "currency"];
                 const csvRows = [headers.join(",")];
-                
-                _data.forEach(item => {
-                    const cleanDesc = (item.description || '').replace(/"/g, '""'); // Escape standard quotes
+                _activeWorkspaceData.forEach(item => {
                     const row = [
-                        item.date,
-                        item.type || 'expense',
-                        item.category,
-                        `"${cleanDesc}"`,
-                        item.amount
+                        item.date, item.type || 'expense', item.category,
+                        `"${(item.description || '').replace(/"/g, '""')}"`,
+                        item.amount, item.currency || 'USD'
                     ];
                     csvRows.push(row.join(","));
                 });
-                
-                blobContent = csvRows.join("\n");
-                fileExtension = 'csv';
-                mimeType = 'text/csv';
+                blobContent = csvRows.join("\n"); fileExtension = 'csv'; mimeType = 'text/csv';
             }
 
             const blob = new Blob([blobContent], { type: mimeType });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `ledger_export_${new Date().toISOString().slice(0,10)}.${fileExtension}`;
-            a.click();
+            a.href = url; a.download = `ledgercloud_window_export.${fileExtension}`; a.click();
             URL.revokeObjectURL(url);
         }
 
         async function importData(event) {
-            if (!_isAdminMode) return alert('Admin access validation mandatory.');
-            const file = event.target.files[0];
-            if (!file) return;
+            if (!_isAdminMode) return alert('Admin validation required.');
+            const file = event.target.files[0]; if (!file) return;
 
-            const nameToken = file.name.split('.').pop().toLowerCase();
+            const ext = file.name.split('.').pop().toLowerCase();
             const reader = new FileReader();
             
             reader.onload = async function(e) {
                 try {
                     let itemsToInsert = [];
-                    
-                    if (nameToken === 'json') {
-                        const parsed = JSON.parse(e.target.result);
-                        itemsToInsert = parsed.map(({amount, category, description, date, type}) => ({
-                            amount: parseFloat(amount), 
-                            category, 
-                            description: description || '', 
-                            date, 
-                            type: type || 'expense'
+                    if (ext === 'json') {
+                        itemsToInsert = JSON.parse(e.target.result).map(({amount, currency, category, description, date, type}) => ({
+                            amount: parseFloat(amount), currency: currency || 'USD', category, description: description || '', date, type: type || 'expense'
                         }));
-                    } else if (nameToken === 'csv') {
-                        const text = e.target.result;
-                        const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
-                        if (lines.length <= 1) throw new Error("Target CSV contains insufficient rows.");
-                        
-                        // Parse tracking rows through custom safe splits to handle quoted elements
+                    } else if (ext === 'csv') {
+                        const lines = e.target.result.split(/\r?\n/).filter(l => l.trim() !== '');
                         for(let i = 1; i < lines.length; i++) {
-                            const tokens = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                            if(tokens.length < 5) continue;
-                            
+                            const tokens = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); if(tokens.length < 5) continue;
                             const date = tokens[0].trim();
                             const type = tokens[1].trim().toLowerCase() === 'income' ? 'income' : 'expense';
                             const category = tokens[2].trim();
-                            let description = tokens[3].trim();
-                            if (description.startsWith('"') && description.endsWith('"')) {
-                                description = description.slice(1, -1).replace(/""/g, '"');
-                            }
+                            let description = tokens[3].trim().replace(/^"|"$/g, '').replace(/""/g, '"');
                             const amount = parseFloat(tokens[4].trim());
+                            const currency = tokens[5] ? tokens[5].trim().toUpperCase() : 'USD';
                             
                             if(date && category && !isNaN(amount)) {
-                                itemsToInsert.push({ date, type, category, description, amount });
+                                itemsToInsert.push({ date, type, category, description, amount, currency });
                             }
                         }
                     }
 
-                    if (itemsToInsert.length === 0) throw new Error("No readable valid records parsed.");
-                    
+                    if (itemsToInsert.length === 0) throw new Error("No readable valid rows parsed.");
                     const { error } = await _sb.from('expenses').insert(itemsToInsert);
                     if (error) throw error;
                     
                     await syncRead();
-                    alert(`Successfully synchronized ${itemsToInsert.length} database entries.`);
-                } catch (err) {
-                    alert('Import parse pipeline failure: ' + err.message);
-                }
+                    alert(`Successfully imported ${itemsToInsert.length} database items.`);
+                } catch (err) { alert('Import parse exception: ' + err.message); }
             };
-            
-            reader.readAsText(file);
-            event.target.value = '';
+            reader.readAsText(file); event.target.value = '';
         }
     </script>
 </body>
