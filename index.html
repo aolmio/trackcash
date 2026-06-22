@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analytics Expense Tracker</title>
+    <title>LedgerCloud — Analytics Expense Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -13,336 +17,494 @@
             darkMode: 'class',
             theme: {
                 extend: {
-                    fontFamily: {
-                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        brand: '#0071e3',
+                        'brand-hover': '#005bb5',
+                        darkBg: '#09090b',
+                        darkCard: '#18181b',
+                        darkBorder: '#27272a',
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                        'glow': '0 0 20px rgba(0, 113, 227, 0.15)',
                     }
                 }
             }
         }
     </script>
     <style>
-        .apple-blur { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
-        input:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15); }
-        
-        .empty-chart::after {
-            content: "No data for this selected period.";
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.875rem;
-            color: #9ca3af;
-            background-color: rgba(255, 255, 255, 0.8);
-            z-index: 10;
+        :root {
+            --bg-page: #f4f4f5;
+            --bg-card: #ffffff;
+            --bg-input: #f4f4f5;
+            --text-primary: #09090b;
+            --text-secondary: #71717a;
+            --border: #e4e4e7;
         }
-        .dark .empty-chart::after {
-            background-color: rgba(28, 28, 30, 0.8);
-            color: #737373;
+        .dark {
+            --bg-page: #09090b;
+            --bg-card: #18181b;
+            --bg-input: #27272a;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --border: #27272a;
         }
 
-        /* Custom Scrollbar for better UI */
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; }
+        body { 
+            background-color: var(--bg-page); 
+            color: var(--text-primary); 
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .glass { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="month"]::-webkit-calendar-picker-indicator,
+        input[type="week"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.5);
+            cursor: pointer;
+        }
+        .dark input[type="date"]::-webkit-calendar-picker-indicator,
+        .dark input[type="month"]::-webkit-calendar-picker-indicator,
+        .dark input[type="week"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.8);
+        }
+
+        .field {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            width: 100%;
+            padding: 10px 14px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        .field:focus {
+            outline: none;
+            border-color: #0071e3;
+            box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+            background: var(--bg-card);
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03);
+            transition: border-color 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #0071e3;
+            color: white;
+            border-radius: 12px;
+            padding: 10px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 10px rgba(0, 113, 227, 0.2);
+        }
+        .btn-primary:hover { background: #005bb5; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0, 113, 227, 0.3); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-secondary:hover { background: var(--border); }
+
+        .empty-chart::after {
+            content: "No data available";
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 500; color: var(--text-secondary);
+            background: rgba(255,255,255,0.7); z-index: 10; border-radius: 16px;
+            backdrop-filter: blur(2px);
+        }
+        .dark .empty-chart::after { background: rgba(24,24,27,0.7); }
+
+        .scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .scroll::-webkit-scrollbar-track { background: transparent; }
+        .scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+        #ledgerBody tr { border-bottom: 1px solid var(--border); transition: background 0.15s ease; }
+        #ledgerBody tr:hover { background: var(--bg-input); }
+        #ledgerBody tr:last-child { border-bottom: none; }
+
+        .type-active { background: var(--bg-card); box-shadow: 0 2px 8px rgba(0,0,0,0.06); color: var(--text-primary); font-weight: 600; border: 1px solid var(--border); }
+
+        .progress-bar { height: 8px; background: var(--bg-input); border-radius: 100px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 100px; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        .header-glass {
+            background: rgba(244, 244, 245, 0.85);
+            border-bottom: 1px solid var(--border);
+        }
+        .dark .header-glass { background: rgba(9, 9, 11, 0.85); }
     </style>
 </head>
-<body class="bg-[#f5f5f7] dark:bg-[#000000] text-[#1d1d1f] dark:text-[#f5f5f7] font-sans min-h-screen transition-colors duration-300 antialiased pb-12">
+<body class="transition-colors duration-300">
 
-    <div id="vaultModal" class="fixed inset-0 bg-black/40 dark:bg-black/70 flex items-center justify-center z-50 apple-blur px-4">
-        <div id="unlockState" class="hidden bg-white/80 dark:bg-[#1c1c1e]/80 p-8 rounded-3xl max-w-md w-full shadow-2xl border border-white/20 apple-blur text-center">
-            <h2 class="text-2xl font-semibold tracking-tight mb-2">Unlock LedgerCloud</h2>
-            <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">Enter your admin passcode to decrypt cloud credentials and establish connection.</p>
-            <input type="password" id="vaultPasscode" class="w-full text-center px-4 py-3 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white text-lg tracking-widest mb-4 transition-all" placeholder="••••••••">
-            <button onclick="unlockVault()" class="w-full bg-[#0071e3] text-white py-3 rounded-xl font-medium tracking-tight hover:bg-[#0077ed] transition-colors shadow-sm">Unlock & Sync</button>
-            <button onclick="resetVault()" class="text-xs text-red-500 mt-6 hover:underline block mx-auto">Reset Saved Credentials</button>
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] opacity-0 pointer-events-none translate-y-4 transition-all duration-300 ease-out">
+        <div class="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-6 py-3.5 rounded-full shadow-2xl text-sm font-semibold whitespace-nowrap flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span id="toastMsg"></span>
         </div>
+    </div>
 
-        <div id="setupState" class="hidden bg-white/80 dark:bg-[#1c1c1e]/80 p-8 rounded-3xl max-w-md w-full shadow-2xl border border-white/20 apple-blur">
-            <h2 class="text-2xl font-semibold tracking-tight mb-2">Secure Initial Setup</h2>
-            <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">Keys are securely encrypted locally using AES-256 derived via cryptographic PBKDF2 salting rules.</p>
+    <div id="vaultModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 px-4 transition-opacity duration-300">
+        <div id="unlockState" class="hidden bg-white dark:bg-zinc-900 p-8 rounded-[2rem] max-w-sm w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 text-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+            <div class="w-16 h-16 bg-blue-50 dark:bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
+                <svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            </div>
+            <h2 class="text-2xl font-bold tracking-tight mb-2">Vault Locked</h2>
+            <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-8">Enter your master passcode to decrypt your connection.</p>
+            <input type="password" id="vaultPasscode" class="field text-center tracking-[0.3em] text-lg mb-6 py-3" placeholder="••••••••" onkeydown="if(event.key==='Enter') unlockVault()">
+            <button onclick="unlockVault()" class="btn-primary w-full py-3 text-base">Decrypt & Connect</button>
+            <button onclick="resetVault()" class="text-xs text-red-500 mt-6 hover:text-red-600 font-medium transition-colors">Reset Credentials</button>
+        </div>
+        <div id="setupState" class="hidden bg-white dark:bg-zinc-900 p-8 rounded-[2rem] max-w-sm w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+            <h2 class="text-2xl font-bold tracking-tight mb-2">Setup LedgerCloud</h2>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed">Securely connect your Supabase instance. Credentials are encrypted locally using AES-256.</p>
             <div class="space-y-4">
                 <div>
-                    <label class="block text-xs font-medium uppercase tracking-wider text-neutral-400 mb-1">Supabase URL</label>
-                    <input type="text" id="setupUrl" class="w-full px-4 py-3 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-all" placeholder="https://your-project.supabase.co">
+                    <label class="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Project URL</label>
+                    <input type="text" id="setupUrl" class="field" placeholder="https://xyz.supabase.co">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium uppercase tracking-wider text-neutral-400 mb-1">Supabase Anon Key</label>
-                    <input type="password" id="setupKey" class="w-full px-4 py-3 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-all" placeholder="eyJhbGciOiJIUzI1Ni...">
+                    <label class="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Anon Key</label>
+                    <input type="password" id="setupKey" class="field" placeholder="eyJhbGciOiJIUzI1Ni...">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium uppercase tracking-wider text-neutral-400 mb-1">Create Admin Passcode</label>
-                    <input type="password" id="setupPasscode" class="w-full px-4 py-3 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-all" placeholder="Choose a secure password">
+                    <label class="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Master Passcode</label>
+                    <input type="password" id="setupPasscode" class="field" placeholder="Create a strong passcode">
                 </div>
-                <button onclick="setupVault()" class="w-full bg-[#0071e3] text-white py-3 rounded-xl font-medium tracking-tight hover:bg-[#0077ed] transition-colors mt-2 shadow-sm">Encrypt & Save</button>
+                <button onclick="setupVault()" class="btn-primary w-full mt-4 py-3">Encrypt & Save</button>
             </div>
         </div>
     </div>
 
-    <header class="sticky top-0 z-40 w-full border-b border-neutral-200/50 dark:border-neutral-800/50 bg-[#f5f5f7]/80 dark:bg-[#000000]/80 apple-blur">
-        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <span class="text-xl font-semibold tracking-tight">LedgerCloud</span>
-                <span id="syncBadge" class="hidden sm:inline-block text-[10px] uppercase tracking-wider font-bold bg-neutral-200 dark:bg-neutral-800 px-2.5 py-1 rounded-full text-neutral-500 dark:text-neutral-400">Not Synced</span>
+    <header class="sticky top-0 z-40 w-full header-glass glass">
+        <div class="max-w-[1400px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                </div>
+                <span class="text-lg font-bold tracking-tight hidden sm:block">LedgerCloud</span>
+                <span id="syncBadge" class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-xs font-semibold text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Not Synced
+                </span>
             </div>
-            
-            <div class="flex items-center space-x-3 sm:space-x-4">
-                
-                <div class="relative flex items-center bg-neutral-200/60 dark:bg-[#1c1c1e] rounded-xl border border-neutral-300/30 p-1">
-                    <span class="text-[10px] font-bold tracking-wider text-neutral-400 uppercase pl-2 pr-1 hidden sm:inline-block">View:</span>
-                    <select id="globalCurrencySelect" onchange="handleGlobalCurrencyChange()" class="bg-white dark:bg-[#2c2c2e] text-xs font-semibold py-1.5 px-2 rounded-lg border-none outline-none cursor-pointer text-[#0071e3] transition-colors">
-                        <option value="USD">USD ($)</option>
-                        <option value="MMK">MMK (Ks)</option>
-                        <option value="THB">THB (฿)</option>
-                        <option value="CNY">CNY (¥)</option>
+
+            <div class="flex items-center gap-3">
+                <div class="relative flex items-center bg-zinc-100 dark:bg-zinc-800/50 rounded-xl p-1 border border-zinc-200 dark:border-zinc-700/50">
+                    <select id="globalCurrencySelect" onchange="handleGlobalCurrencyChange()" class="bg-transparent text-sm font-bold py-1.5 pl-3 pr-2 border-none outline-none cursor-pointer text-blue-600 dark:text-blue-400 appearance-none">
+                        <option value="USD" class="text-black dark:text-white">USD ($)</option>
+                        <option value="MMK" class="text-black dark:text-white">MMK (Ks)</option>
+                        <option value="THB" class="text-black dark:text-white">THB (฿)</option>
+                        <option value="CNY" class="text-black dark:text-white">CNY (¥)</option>
                     </select>
-                    
-                    <div class="w-px h-4 bg-neutral-300 dark:bg-neutral-700 mx-1.5"></div>
-                    
-                    <button id="fxSettingsBtn" onclick="toggleFxSettings()" class="p-1.5 rounded-lg text-neutral-500 hover:text-[#0071e3] hover:bg-white dark:hover:bg-[#2c2c2e] transition-all" title="Adjust Market Rates">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                    <div class="w-px h-4 bg-zinc-300 dark:bg-zinc-600 mx-1"></div>
+                    <button id="fxSettingsBtn" onclick="toggleFxSettings()" class="p-1.5 rounded-lg text-zinc-500 hover:text-blue-600 hover:bg-white dark:hover:bg-zinc-700 transition-all" title="Market Rates">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </button>
 
-                    <div id="fxSettingsDropdown" class="absolute top-full right-0 mt-3 w-64 bg-white/95 dark:bg-[#1c1c1e]/95 apple-blur p-5 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-800 z-50 transform origin-top-right transition-all duration-200 opacity-0 pointer-events-none scale-95 -translate-y-2">
-                        <div class="flex items-center justify-between mb-3">
-                            <h4 class="text-xs font-semibold uppercase tracking-wider text-neutral-500">Market Rate Calibration</h4>
+                    <div id="fxSettingsDropdown" class="absolute top-full right-0 mt-3 w-80 bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 z-50 opacity-0 pointer-events-none scale-95 origin-top-right transition-all duration-200 ease-out">
+                        <div class="flex items-center justify-between mb-5">
+                            <h4 class="text-sm font-bold">Exchange Calibration</h4>
+                            <span class="px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-bold">Base: USD</span>
                         </div>
-                        <p class="text-[10px] text-neutral-400 mb-3 leading-relaxed">Adjust the real-world MMK market rate against the USD. This will cascade correctly across THB and CNY.</p>
-                        <div class="space-y-3">
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-5">Set your rates. USD/THB rate calculates automatically in the background.</p>
+                        
+                        <div class="space-y-4">
                             <div>
-                                <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Current: 1 USD =</label>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">1 USD equals</label>
                                 <div class="relative">
-                                    <input type="number" id="inputCustomMMK" class="w-full pl-3 pr-10 py-2.5 text-sm font-semibold bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-all text-[#0071e3]" placeholder="e.g. 3500">
-                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-400">MMK</span>
+                                    <input type="number" id="inputCustomMMK" class="field pr-14 text-blue-600 dark:text-blue-400 font-bold bg-zinc-50 dark:bg-zinc-800/50" placeholder="e.g. 3500">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-400">MMK</span>
                                 </div>
                             </div>
-                            <div class="pt-2 flex space-x-2">
-                                <button onclick="resetFxRates()" class="flex-1 py-2 bg-neutral-200 dark:bg-neutral-800 text-xs font-medium rounded-xl text-neutral-600 dark:text-neutral-400 hover:bg-neutral-300 dark:hover:bg-neutral-700 transition-colors">Reset Default</button>
-                                <button onclick="applyFxRates()" class="flex-1 py-2 bg-[#0071e3] text-xs font-medium rounded-xl text-white hover:bg-[#0077ed] shadow-sm transition-colors">Apply Math</button>
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">1 THB equals</label>
+                                <div class="relative">
+                                    <input type="number" id="inputCustomTHB_MMK" class="field pr-14 text-blue-600 dark:text-blue-400 font-bold bg-zinc-50 dark:bg-zinc-800/50" placeholder="e.g. 100">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-400">MMK</span>
+                                </div>
                             </div>
+                            
+                            <div id="derivedRateDisplay" class="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-3 text-xs text-zinc-600 dark:text-zinc-300 border border-zinc-100 dark:border-zinc-700/50 text-center"></div>
+                        </div>
+                        
+                        <div class="flex gap-2 mt-5">
+                            <button onclick="resetFxRates()" class="btn-secondary flex-1 py-2 text-xs">Reset</button>
+                            <button onclick="applyFxRates()" class="btn-primary flex-1 py-2 text-xs">Apply Rates</button>
                         </div>
                     </div>
                 </div>
 
-                <button id="adminStatusBtn" onclick="lockAdminSession()" class="hidden sm:block text-xs bg-green-500/10 text-green-600 dark:text-green-400 px-3 py-1.5 rounded-full font-medium border border-green-500/20 transition-all hover:bg-green-500/20">🔓 Admin Unlocked</button>
-                <button onclick="toggleTheme()" class="p-2 rounded-full bg-neutral-200 dark:bg-[#1c1c1e] text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-800 transition-colors border border-neutral-300/30">
-                    <svg id="themeIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.75A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" /></svg>
+                <button id="adminStatusBtn" onclick="lockAdminSession()" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors text-sm font-semibold">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+                    <span>Admin</span>
+                </button>
+
+                <button onclick="toggleTheme()" class="w-9 h-9 flex items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors border border-zinc-200 dark:border-zinc-700">
+                    <svg id="themeIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"></svg>
                 </button>
             </div>
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-6 mt-8 space-y-8">
-        
-        <section class="bg-white dark:bg-[#1c1c1e] p-5 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-colors">
-            <div class="flex flex-col space-y-1">
-                <span class="text-xs font-bold uppercase text-neutral-400 tracking-wider">Active Workspace Window</span>
-                <h2 id="activeRangeDisplayTitle" class="text-base font-semibold tracking-tight text-[#0071e3]">Loading operational metrics...</h2>
+    <main class="max-w-[1400px] mx-auto px-4 sm:px-6 mt-6 space-y-6 pb-12">
+
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-4 sm:p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+            <div>
+                <p class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Time Horizon</p>
+                <h2 id="activeRangeDisplayTitle" class="text-lg font-bold text-blue-600 dark:text-blue-400">Loading…</h2>
             </div>
-            
             <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
                 <div id="granularTimeInputsWrapper" class="flex items-center gap-2">
-                    <input type="week" id="pickerSpecificWeek" onchange="executeDataPipelineFilter()" class="hidden bg-neutral-100 dark:bg-[#2c2c2e] text-xs font-medium py-2 px-3 rounded-xl border-none outline-none text-neutral-700 dark:text-neutral-300 transition-colors">
-                    <input type="month" id="pickerSpecificMonth" onchange="executeDataPipelineFilter()" class="hidden bg-neutral-100 dark:bg-[#2c2c2e] text-xs font-medium py-2 px-3 rounded-xl border-none outline-none text-neutral-700 dark:text-neutral-300 transition-colors">
-                    <select id="pickerSpecificYear" onchange="executeDataPipelineFilter()" class="hidden bg-neutral-100 dark:bg-[#2c2c2e] text-xs font-medium py-2 px-3 rounded-xl border-none outline-none text-neutral-700 dark:text-neutral-300 transition-colors"></select>
-                    <div id="pickerCustomRange" class="hidden flex items-center space-x-2 bg-neutral-100 dark:bg-[#2c2c2e] p-1 rounded-xl">
-                        <input type="date" id="customRangeStart" onchange="executeDataPipelineFilter()" class="bg-white dark:bg-[#1c1c1e] text-xs font-medium py-1.5 px-2.5 rounded-lg border-none outline-none text-neutral-700 dark:text-neutral-300 shadow-sm transition-colors">
-                        <span class="text-xs text-neutral-400 font-medium">to</span>
-                        <input type="date" id="customRangeEnd" onchange="executeDataPipelineFilter()" class="bg-white dark:bg-[#1c1c1e] text-xs font-medium py-1.5 px-2.5 rounded-lg border-none outline-none text-neutral-700 dark:text-neutral-300 shadow-sm transition-colors">
+                    <input type="week" id="pickerSpecificWeek" onchange="executeDataPipelineFilter()" class="hidden field py-2 px-3 text-sm font-medium w-auto">
+                    <input type="month" id="pickerSpecificMonth" onchange="executeDataPipelineFilter()" class="hidden field py-2 px-3 text-sm font-medium w-auto">
+                    <select id="pickerSpecificYear" onchange="executeDataPipelineFilter()" class="hidden field py-2 px-3 text-sm font-medium w-auto cursor-pointer"></select>
+                    <div id="pickerCustomRange" class="hidden flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                        <input type="date" id="customRangeStart" onchange="executeDataPipelineFilter()" class="bg-white dark:bg-zinc-900 py-1.5 px-2 rounded-lg border-none outline-none text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                        <span class="text-xs font-bold text-zinc-400">TO</span>
+                        <input type="date" id="customRangeEnd" onchange="executeDataPipelineFilter()" class="bg-white dark:bg-zinc-900 py-1.5 px-2 rounded-lg border-none outline-none text-sm font-medium text-zinc-700 dark:text-zinc-300">
                     </div>
                 </div>
-
-                <select id="primaryTimeframeSelector" onchange="handlePrimaryTimeframeChange()" class="bg-neutral-100 dark:bg-[#2c2c2e] text-xs font-semibold py-2.5 px-4 rounded-xl border-none outline-none focus:ring-2 focus:ring-[#0071e3]/50 cursor-pointer text-neutral-800 dark:text-neutral-200 transition-colors shadow-sm">
-                    <optgroup label="Standard Presets">
+                <select id="primaryTimeframeSelector" onchange="handlePrimaryTimeframeChange()" class="field py-2 px-4 text-sm font-bold cursor-pointer w-full md:w-auto bg-zinc-50 dark:bg-zinc-800/50">
+                    <optgroup label="Presets">
                         <option value="current-week">Current Week</option>
                         <option value="current-month" selected>Current Month</option>
                         <option value="current-year">Current Year</option>
-                        <option value="all-time">All-Time Balance</option>
+                        <option value="all-time">All Time</option>
                     </optgroup>
-                    <optgroup label="Granular Choice Engine">
-                        <option value="specific-week">Choose Specific Week...</option>
-                        <option value="specific-month">Choose Specific Month...</option>
-                        <option value="specific-year">Choose Specific Year...</option>
-                        <option value="custom-range">Custom Date Boundary...</option>
+                    <optgroup label="Custom Ranges">
+                        <option value="specific-week">Pick Week…</option>
+                        <option value="specific-month">Pick Month…</option>
+                        <option value="specific-year">Pick Year…</option>
+                        <option value="custom-range">Custom Dates…</option>
                     </optgroup>
                 </select>
             </div>
-        </section>
+        </div>
 
-        <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-                <p class="text-xs font-bold uppercase tracking-wider text-neutral-400">Selected Income</p>
-                <h3 id="statIncome" class="text-2xl lg:text-3xl font-semibold tracking-tight mt-2 text-green-600 dark:text-green-400">$0.00</h3>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div class="card p-5 relative overflow-hidden group">
+                <div class="absolute -right-6 -top-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all"></div>
+                <div class="flex items-center justify-between mb-3">
+                    <p class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Income</p>
+                    <div class="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M7 17L17 7M17 7H8M17 7V16"/></svg>
+                    </div>
+                </div>
+                <h3 id="statIncome" class="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400 tracking-tight">$0.00</h3>
             </div>
-            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-                <p class="text-xs font-bold uppercase tracking-wider text-neutral-400">Selected Expense</p>
-                <h3 id="statExpense" class="text-2xl lg:text-3xl font-semibold tracking-tight mt-2 text-red-500">$0.00</h3>
+            <div class="card p-5 relative overflow-hidden group">
+                <div class="absolute -right-6 -top-6 w-24 h-24 bg-rose-500/10 rounded-full blur-2xl group-hover:bg-rose-500/20 transition-all"></div>
+                <div class="flex items-center justify-between mb-3">
+                    <p class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Expenses</p>
+                    <div class="w-8 h-8 rounded-full bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17 7L7 17M7 17H16M7 17V8"/></svg>
+                    </div>
+                </div>
+                <h3 id="statExpense" class="text-2xl sm:text-3xl font-bold text-rose-600 dark:text-rose-400 tracking-tight">$0.00</h3>
             </div>
-            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-                <p class="text-xs font-bold uppercase tracking-wider text-neutral-400">Net Flow Balance</p>
-                <h3 id="statNetFlow" class="text-2xl lg:text-3xl font-semibold tracking-tight mt-2">$0.00</h3>
+            <div class="card p-5 relative overflow-hidden group">
+                <div class="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all"></div>
+                <div class="flex items-center justify-between mb-3">
+                    <p class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Net Flow</p>
+                    <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                    </div>
+                </div>
+                <h3 id="statNetFlow" class="text-2xl sm:text-3xl font-bold tracking-tight">$0.00</h3>
             </div>
-            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm flex flex-col justify-between relative overflow-hidden hover:shadow-md transition-shadow">
-                <div>
-                    <p class="text-xs font-bold uppercase tracking-wider text-neutral-400">Timeframe Forecast</p>
-                    <h3 id="statForecast" class="text-2xl lg:text-3xl font-semibold tracking-tight mt-2 text-[#0071e3]">$0.00</h3>
+            <div class="card p-5 relative overflow-hidden group">
+                <div class="absolute -right-6 -top-6 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition-all"></div>
+                <div class="flex items-center justify-between mb-3">
+                    <p class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Proj. Spend</p>
+                    <div class="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    </div>
+                </div>
+                <h3 id="statForecast" class="text-2xl sm:text-3xl font-bold text-indigo-600 dark:text-indigo-400 tracking-tight">$0.00</h3>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div class="card p-6 lg:col-span-8 flex flex-col">
+                <div class="flex items-center justify-between mb-6">
+                    <h4 class="text-base font-bold tracking-tight">Cashflow Timeline</h4>
+                    <span class="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-bold" id="chartSecondaryUnitLabel">USD</span>
+                </div>
+                <div id="lineChartContainer" class="flex-1 min-h-[260px] relative w-full rounded-xl overflow-hidden">
+                    <canvas id="lineChart"></canvas>
                 </div>
             </div>
-        </section>
-
-        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="lg:col-span-2 bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm">
-                <div class="flex items-center justify-between mb-4">
-                    <h4 class="font-semibold tracking-tight">Timeline Dynamic Balance Trend</h4>
-                    <span class="text-[10px] text-neutral-500 uppercase font-bold tracking-widest bg-neutral-100 dark:bg-[#2c2c2e] py-1 px-2.5 rounded-lg" id="chartSecondaryUnitLabel">USD</span>
+            <div class="card p-6 lg:col-span-4 flex flex-col">
+                <h4 class="text-base font-bold tracking-tight mb-6">Spending Split</h4>
+                <div id="pieChartContainer" class="flex-1 min-h-[260px] relative w-full flex justify-center items-center">
+                    <canvas id="pieChart"></canvas>
                 </div>
-                <div id="lineChartContainer" class="h-64 relative w-full rounded-xl overflow-hidden"><canvas id="lineChart"></canvas></div>
             </div>
-            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm flex flex-col justify-between">
-                <h4 class="font-semibold tracking-tight mb-4">Expense Categories Allocation</h4>
-                <div id="pieChartContainer" class="h-64 relative w-full flex justify-center rounded-xl overflow-hidden"><canvas id="pieChart"></canvas></div>
-            </div>
-        </section>
+        </div>
 
-        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm">
-                <div class="flex justify-between items-center mb-4">
-                    <h4 class="font-semibold tracking-tight text-sm uppercase text-neutral-400">Volume Allocation Profile</h4>
-                    <span id="allocationPeriodText" class="text-xs text-neutral-500">Selected Window</span>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="card p-6">
+                <div class="flex items-center justify-between mb-5">
+                    <h4 class="text-sm font-bold tracking-tight">Category Breakdown</h4>
+                    <span class="text-xs text-zinc-400 font-medium">Ranked by volume</span>
                 </div>
-                <div id="categoryDistributionWidget" class="space-y-4 max-h-48 overflow-y-auto pr-2 custom-scrollbar"></div>
+                <div id="categoryDistributionWidget" class="space-y-4 max-h-60 overflow-y-auto scroll pr-2"></div>
             </div>
-
-            <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm">
-                <div class="flex justify-between items-center mb-4">
-                    <h4 class="font-semibold tracking-tight text-sm uppercase text-neutral-400">Contextual Insight Engine</h4>
-                </div>
-                <div id="insightsPanel" class="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar"></div>
+            <div class="card p-6">
+                <h4 class="text-sm font-bold tracking-tight mb-5">Smart Insights</h4>
+                <div id="insightsPanel" class="space-y-3 max-h-60 overflow-y-auto scroll pr-2"></div>
             </div>
-        </section>
+        </div>
 
-        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            
-            <div id="formContainer" class="bg-white dark:bg-[#1c1c1e] p-6 rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm admin-element transition-opacity duration-300">
-                <h4 id="formTitle" class="font-semibold tracking-tight mb-4">Add Transaction</h4>
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+
+            <div id="formContainer" class="card p-6 xl:col-span-4 admin-element transition-opacity duration-300 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                <h4 id="formTitle" class="text-lg font-bold tracking-tight mb-6">Add Transaction</h4>
                 <form id="expenseForm" onsubmit="handleFormSubmit(event)" class="space-y-5">
                     <input type="hidden" id="editId">
-                    
+
                     <div>
-                        <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Transaction Type</label>
-                        <div class="grid grid-cols-2 gap-1 bg-neutral-100 dark:bg-[#2c2c2e] p-1 rounded-xl">
-                            <button type="button" id="typeBtnExpense" onclick="setFormType('expense')" class="py-2 text-xs font-medium rounded-lg transition-all bg-white dark:bg-[#1c1c1e] text-[#1d1d1f] dark:text-[#f5f5f7] shadow-sm">Expense</button>
-                            <button type="button" id="typeBtnIncome" onclick="setFormType('income')" class="py-2 text-xs font-medium rounded-lg transition-all text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300">Income</button>
+                        <div class="grid grid-cols-2 gap-1.5 bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                            <button type="button" id="typeBtnExpense" onclick="setFormType('expense')" class="py-2.5 text-sm rounded-lg transition-all type-active">Expense</button>
+                            <button type="button" id="typeBtnIncome" onclick="setFormType('income')" class="py-2.5 text-sm rounded-lg transition-all text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 font-medium">Income</button>
                         </div>
                         <input type="hidden" id="expType" value="expense">
                     </div>
 
                     <div>
-                        <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Amount & Source Currency</label>
-                        <div class="flex space-x-2">
-                            <input type="number" step="0.01" id="expAmount" required class="flex-1 px-4 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-colors">
-                            <select id="expCurrency" required class="w-24 px-2 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white font-semibold text-xs text-[#0071e3] cursor-pointer transition-colors">
-                                <option value="USD">USD ($)</option>
-                                <option value="MMK">MMK (Ks)</option>
-                                <option value="THB">THB (฿)</option>
-                                <option value="CNY">CNY (¥)</option>
+                        <label class="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Amount</label>
+                        <div class="flex gap-2">
+                            <input type="number" step="0.01" id="expAmount" required class="field flex-1 text-lg font-bold" placeholder="0.00">
+                            <select id="expCurrency" required class="field w-[95px] flex-shrink-0 font-bold text-sm text-blue-600 dark:text-blue-400 bg-zinc-50 dark:bg-zinc-800/50 cursor-pointer">
+                                <option value="USD">USD</option>
+                                <option value="MMK">MMK</option>
+                                <option value="THB">THB</option>
+                                <option value="CNY">CNY</option>
                             </select>
                         </div>
                     </div>
+
                     <div>
-                        <div class="flex items-center justify-between mb-1.5">
-                            <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Category</label>
-                            <button type="button" onclick="manageCategories()" class="text-[10px] font-bold uppercase tracking-wider text-[#0071e3] hover:underline focus:outline-none">Edit List</button>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-xs font-bold text-zinc-500 uppercase tracking-wider">Category</label>
+                            <button type="button" onclick="manageCategories()" class="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline">Edit List</button>
                         </div>
-                        <select id="expCategory" required class="w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-colors cursor-pointer"></select>
+                        <select id="expCategory" required class="field cursor-pointer font-medium"></select>
                     </div>
+
                     <div>
-                        <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Description</label>
-                        <input type="text" id="expDesc" class="w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-colors" placeholder="Context tag details...">
+                        <label class="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Date</label>
+                        <input type="date" id="expDate" required class="field cursor-pointer font-medium">
                     </div>
+
                     <div>
-                        <label class="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Date</label>
-                        <input type="date" id="expDate" required class="w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white transition-colors cursor-pointer">
+                        <label class="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Description</label>
+                        <input type="text" id="expDesc" class="field font-medium" placeholder="What was this for?">
                     </div>
-                    <div class="flex space-x-2 pt-2">
-                        <button type="button" id="cancelEditBtn" onclick="resetForm()" class="hidden w-1/3 bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 py-3 rounded-xl font-medium text-sm transition-all hover:bg-neutral-300 dark:hover:bg-neutral-700">Cancel</button>
-                        <button type="submit" id="submitFormBtn" class="flex-1 bg-[#0071e3] text-white py-3 rounded-xl font-medium text-sm hover:bg-[#0077ed] transition-all shadow-sm">Save Entry</button>
+
+                    <div class="flex gap-3 pt-2">
+                        <button type="button" id="cancelEditBtn" onclick="resetForm()" class="hidden btn-secondary w-1/3">Cancel</button>
+                        <button type="submit" id="submitFormBtn" class="btn-primary flex-1 py-3">Save Transaction</button>
                     </div>
                 </form>
             </div>
 
-            <div class="lg:col-span-2 bg-white dark:bg-[#1c1c1e] rounded-3xl border border-neutral-200/60 dark:border-neutral-800/60 shadow-sm overflow-hidden flex flex-col h-full">
-                
-                <div class="p-5 border-b border-neutral-100 dark:border-neutral-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-neutral-50/30 dark:bg-black/10">
-                    <div class="flex items-center space-x-4">
-                        <h4 class="font-semibold tracking-tight">Audit Timeline</h4>
-                        <button id="bulkDeleteBtn" onclick="handleBulkDelete()" class="hidden text-[10px] uppercase font-bold tracking-wider bg-red-500/10 text-red-600 dark:text-red-400 py-1.5 px-3 rounded-full border border-red-500/20 hover:bg-red-500/20 transition-all">Delete (<span id="bulkSelectCount">0</span>)</button>
+            <div class="card xl:col-span-8 overflow-hidden flex flex-col border border-zinc-200 dark:border-zinc-800">
+                <div class="p-5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+                    <div class="flex items-center gap-4">
+                        <h4 class="text-base font-bold tracking-tight">Ledger</h4>
+                        <button id="bulkDeleteBtn" onclick="handleBulkDelete()" class="hidden items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/30 transition-all text-xs font-bold">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            Delete (<span id="bulkSelectCount">0</span>)
+                        </button>
                     </div>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <input type="text" id="searchInput" onkeyup="filterLedger(this.value)" placeholder="Search transactions..." class="text-xs px-4 py-2 bg-neutral-100 dark:bg-[#2c2c2e] rounded-xl border border-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071e3]/30 transition-all w-full sm:w-48">
-                        
-                        <div class="flex items-center space-x-1 bg-neutral-100 dark:bg-[#2c2c2e] p-1 rounded-xl">
-                            <button onclick="exportData('json')" class="text-[10px] font-bold uppercase tracking-wider text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 px-2.5 py-1.5 rounded-lg hover:bg-white dark:hover:bg-[#1c1c1e] transition-colors">JSON ↓</button>
-                            <button onclick="exportData('csv')" class="text-[10px] font-bold uppercase tracking-wider text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 px-2.5 py-1.5 rounded-lg hover:bg-white dark:hover:bg-[#1c1c1e] transition-colors">CSV ↓</button>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="relative">
+                            <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <input type="text" id="searchInput" onkeyup="filterLedger(this.value)" placeholder="Search..." class="field pl-9 py-2 text-sm w-full sm:w-56 font-medium">
                         </div>
-
-                        <label class="text-[10px] font-bold uppercase tracking-wider text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 bg-neutral-100 dark:bg-[#2c2c2e] py-2 px-3 rounded-xl hover:bg-neutral-200 dark:hover:bg-neutral-700 cursor-pointer transition-colors text-center">
-                            Import File <input type="file" id="importFile" accept=".json,.csv" onchange="importData(event)" class="hidden">
+                        <div class="flex items-center p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                            <button onclick="exportData('json')" class="text-[11px] font-bold uppercase tracking-wider text-zinc-500 hover:text-zinc-900 dark:hover:text-white px-3 py-1.5 rounded-lg hover:bg-white dark:hover:bg-zinc-700 transition-colors">JSON</button>
+                            <button onclick="exportData('csv')" class="text-[11px] font-bold uppercase tracking-wider text-zinc-500 hover:text-zinc-900 dark:hover:text-white px-3 py-1.5 rounded-lg hover:bg-white dark:hover:bg-zinc-700 transition-colors">CSV</button>
+                        </div>
+                        <label class="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 py-2 px-4 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                            Import
+                            <input type="file" id="importFile" accept=".json,.csv" onchange="importData(event)" class="hidden">
                         </label>
                     </div>
                 </div>
 
-                <div class="overflow-x-auto flex-1 custom-scrollbar min-h-[300px]">
-                    <table class="w-full text-left text-sm whitespace-nowrap">
-                        <thead class="bg-neutral-50/80 dark:bg-[#2c2c2e]/80 backdrop-blur-md text-[10px] font-bold uppercase tracking-wider text-neutral-400 sticky top-0 z-10">
+                <div class="overflow-x-auto scroll flex-1 min-h-[300px]">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 bg-zinc-50 dark:bg-[#18181b] sticky top-0 z-10 shadow-sm">
                             <tr>
-                                <th class="px-5 py-4 w-4 text-center border-b border-neutral-200 dark:border-neutral-800">
-                                    <input type="checkbox" id="masterCheckbox" onclick="toggleSelectAllRows(this)" class="rounded border-gray-300 dark:border-neutral-600 text-[#0071e3] focus:ring-[#0071e3] transition-colors">
-                                </th>
-                                <th class="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">Date</th>
-                                <th class="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">Category</th>
-                                <th class="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">Description</th>
-                                <th class="px-5 py-4 text-right border-b border-neutral-200 dark:border-neutral-800">Amount (Src)</th>
-                                <th class="px-5 py-4 text-right border-b border-neutral-200 dark:border-neutral-800 text-[#0071e3]" id="thGlobalAmountLabel">Converted (USD)</th>
-                                <th class="px-5 py-4 text-center admin-element transition-opacity duration-300 border-b border-neutral-200 dark:border-neutral-800">Action</th>
+                                <th class="px-5 py-4 w-10 text-center border-b border-zinc-200 dark:border-zinc-800"><input type="checkbox" id="masterCheckbox" onclick="toggleSelectAllRows(this)" class="accent-blue-600 w-4 h-4 cursor-pointer rounded border-zinc-300"></th>
+                                <th class="px-5 py-4 whitespace-nowrap border-b border-zinc-200 dark:border-zinc-800">Date</th>
+                                <th class="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800">Category</th>
+                                <th class="px-5 py-4 hidden md:table-cell border-b border-zinc-200 dark:border-zinc-800">Description</th>
+                                <th class="px-5 py-4 text-right whitespace-nowrap border-b border-zinc-200 dark:border-zinc-800">Amount (Src)</th>
+                                <th class="px-5 py-4 text-right text-blue-600 dark:text-blue-400 whitespace-nowrap border-b border-zinc-200 dark:border-zinc-800" id="thGlobalAmountLabel">Converted</th>
+                                <th class="px-5 py-4 text-center admin-element transition-opacity duration-300 whitespace-nowrap border-b border-zinc-200 dark:border-zinc-800">Actions</th>
                             </tr>
                         </thead>
-                        <tbody id="ledgerBody" class="divide-y divide-neutral-100 dark:divide-neutral-800"></tbody>
+                        <tbody id="ledgerBody" class="text-sm"></tbody>
                     </table>
                 </div>
 
-                <div class="p-4 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-black/20 flex items-center justify-between mt-auto">
-                    <span id="paginationInfo" class="text-xs text-neutral-500 font-medium">Showing 0-0 of 0 entries</span>
-                    <div class="flex items-center space-x-1.5">
-                        <button onclick="changePage(-1)" id="btnPrevPage" class="px-3 py-1.5 rounded-lg bg-white dark:bg-[#2c2c2e] border border-neutral-200 dark:border-neutral-700 text-xs font-medium hover:bg-neutral-50 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:pointer-events-none transition-all shadow-sm text-neutral-600 dark:text-neutral-300">← Prev</button>
-                        <button onclick="changePage(1)" id="btnNextPage" class="px-3 py-1.5 rounded-lg bg-white dark:bg-[#2c2c2e] border border-neutral-200 dark:border-neutral-700 text-xs font-medium hover:bg-neutral-50 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:pointer-events-none transition-all shadow-sm text-neutral-600 dark:text-neutral-300">Next →</button>
+                <div class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-between">
+                    <span id="paginationInfo" class="text-xs text-zinc-500 font-bold uppercase tracking-wider">0 entries</span>
+                    <div class="flex items-center gap-2">
+                        <button onclick="changePage(-1)" id="btnPrevPage" class="px-4 py-2 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-bold hover:bg-zinc-50 dark:hover:bg-zinc-700 disabled:opacity-40 disabled:pointer-events-none transition-all shadow-sm">Previous</button>
+                        <button onclick="changePage(1)" id="btnNextPage" class="px-4 py-2 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-bold hover:bg-zinc-50 dark:hover:bg-zinc-700 disabled:opacity-40 disabled:pointer-events-none transition-all shadow-sm">Next</button>
                     </div>
                 </div>
             </div>
-        </section>
+        </div>
     </main>
 
     <script>
         let _sb = null;
         let _data = [];
-        let _activeWorkspaceData = []; 
-        let _filteredData = [];          
+        let _activeWorkspaceData = [];
+        let _filteredData = [];
         let _categories = ['Food & Dining', 'Housing', 'Utilities', 'Transportation', 'Entertainment', 'Healthcare', 'Salary', 'Investments'];
         let _isAdminMode = true;
         let _masterPasscode = '';
         let lineChartInstance = null;
         let pieChartInstance = null;
-
         let _currentPage = 1;
-        const _pageSize = 8;
-        
-        // Comprehensive Multi-Currency Core Foreign Exchange Matrix
-        const _defaultFxRates = { USD: 1, MMK: 3500, THB: 34, CNY: 7.2 };
+        const _pageSize = 10;
+
+        // FX Rates
+        // Internally stored relative to base USD: { USD: 1, MMK: 3500, THB: 35 } => meaning 1 USD = 3500 MMK, 1 USD = 35 THB.
+        const _defaultFxRates = { USD: 1, MMK: 3500, THB: 35, CNY: 7.2 };
         let _fxRates = { ..._defaultFxRates };
         let _globalDisplayCurrency = 'USD';
+
+        // Styling palettes for charts and progress bars
+        const PALETTE = ['#0071e3','#34c759','#f59e0b','#ef4444','#8b5cf6','#d946ef','#0ea5e9','#eab308'];
 
         document.getElementById('expDate').valueAsDate = new Date();
 
@@ -350,7 +512,6 @@
             loadCategories();
             loadFxRates();
             populateSpecificYearDropdownOptions();
-            
             if (localStorage.getItem('lc_vault')) {
                 document.getElementById('unlockState').classList.remove('hidden');
             } else {
@@ -361,64 +522,97 @@
         });
 
         // ==========================================
-        // FX EXCHANGE CALCULATION PIPELINES & CUSTOM MARKET RATE
+        // TOAST NOTIFICATION
+        // ==========================================
+        function showToast(msg, duration = 3000) {
+            const t = document.getElementById('toast');
+            document.getElementById('toastMsg').textContent = msg;
+            t.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
+            setTimeout(() => { t.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none'); }, duration);
+        }
+
+        // ==========================================
+        // FX EXCHANGE ENGINE (REFACTORED)
         // ==========================================
         function loadFxRates() {
-            const savedRates = localStorage.getItem('lc_fxRates');
-            if (savedRates) {
-                try {
-                    const parsed = JSON.parse(savedRates);
-                    _fxRates = { ..._defaultFxRates, ...parsed };
-                } catch(e) { console.error(e); }
+            const saved = localStorage.getItem('lc_fxRates');
+            if (saved) {
+                try { _fxRates = { ..._defaultFxRates, ...JSON.parse(saved) }; } catch(e) { console.error(e); }
             }
             document.getElementById('inputCustomMMK').value = _fxRates.MMK;
+            
+            // Calculate 1 THB = ? MMK based on internal rates
+            // If 1 USD = MMK, and 1 USD = THB, then 1 THB = MMK / THB
+            const thbToMmk = (_fxRates.MMK / _fxRates.THB).toFixed(2);
+            document.getElementById('inputCustomTHB_MMK').value = parseFloat(thbToMmk);
+            
+            updateDerivedRateDisplay();
         }
+
+        function updateDerivedRateDisplay() {
+            const usdMmk = parseFloat(document.getElementById('inputCustomMMK').value) || _fxRates.MMK;
+            const thbMmk = parseFloat(document.getElementById('inputCustomTHB_MMK').value) || (_fxRates.MMK / _fxRates.THB);
+            
+            // Derive USD -> THB for display: 1 USD = (usdMmk / thbMmk) THB
+            const usdToThb = (usdMmk / thbMmk).toFixed(2);
+            
+            document.getElementById('derivedRateDisplay').innerHTML =
+                `<span class="font-bold text-blue-600 dark:text-blue-400">1 USD</span> ≈ <span class="font-bold">${usdToThb} THB</span>`;
+        }
+
+        document.getElementById('inputCustomMMK').addEventListener('input', updateDerivedRateDisplay);
+        document.getElementById('inputCustomTHB_MMK').addEventListener('input', updateDerivedRateDisplay);
 
         function toggleFxSettings() {
-            const dropdown = document.getElementById('fxSettingsDropdown');
-            dropdown.classList.toggle('opacity-0');
-            dropdown.classList.toggle('pointer-events-none');
-            dropdown.classList.toggle('scale-95');
-            dropdown.classList.toggle('-translate-y-2');
+            const d = document.getElementById('fxSettingsDropdown');
+            const isOpen = !d.classList.contains('opacity-0');
+            if (isOpen) {
+                d.classList.add('opacity-0', 'pointer-events-none', 'scale-95', '-translate-y-1');
+            } else {
+                d.classList.remove('opacity-0', 'pointer-events-none', 'scale-95', '-translate-y-1');
+                loadFxRates(); // refresh UI to match current memory
+            }
         }
 
-        // Close custom FX dropdown when clicking outside
         window.addEventListener('click', function(e) {
-            const dropdown = document.getElementById('fxSettingsDropdown');
+            const d = document.getElementById('fxSettingsDropdown');
             const btn = document.getElementById('fxSettingsBtn');
-            if (!dropdown.contains(e.target) && !btn.contains(e.target) && e.target !== btn) {
-                dropdown.classList.add('opacity-0', 'pointer-events-none', 'scale-95', '-translate-y-2');
+            if (!d.contains(e.target) && !btn.contains(e.target)) {
+                d.classList.add('opacity-0', 'pointer-events-none', 'scale-95', '-translate-y-1');
             }
         });
 
         function applyFxRates() {
-            const mmkVal = parseFloat(document.getElementById('inputCustomMMK').value);
-            if (!isNaN(mmkVal) && mmkVal > 0) {
-                _fxRates.MMK = mmkVal;
-                localStorage.setItem('lc_fxRates', JSON.stringify({ MMK: _fxRates.MMK }));
-                toggleFxSettings(); 
-                
-                // Trigger full workspace matrix refresh
-                updateMetrics();
-                renderCharts();
-                renderLedgerTable(_filteredData);
-            } else {
-                alert("Please enter a valid numeric exchange rate.");
+            const usdMmk = parseFloat(document.getElementById('inputCustomMMK').value);
+            const thbMmk = parseFloat(document.getElementById('inputCustomTHB_MMK').value);
+            
+            if (isNaN(usdMmk) || usdMmk <= 0 || isNaN(thbMmk) || thbMmk <= 0) {
+                showToast('⚠️ Enter valid rates above 0.');
+                return;
             }
+            
+            _fxRates.MMK = usdMmk;
+            _fxRates.THB = usdMmk / thbMmk; // Calculate and store THB relative to USD base
+            
+            localStorage.setItem('lc_fxRates', JSON.stringify({ MMK: _fxRates.MMK, THB: _fxRates.THB }));
+            toggleFxSettings();
+            updateMetrics(); renderCharts(); renderLedgerTable(_filteredData);
+            showToast(`✓ Applied: 1 USD = ${usdMmk} MMK | 1 THB = ${thbMmk} MMK`);
         }
 
         function resetFxRates() {
             _fxRates.MMK = _defaultFxRates.MMK;
-            document.getElementById('inputCustomMMK').value = _defaultFxRates.MMK;
+            _fxRates.THB = _defaultFxRates.THB;
+            loadFxRates();
             localStorage.removeItem('lc_fxRates');
-            applyFxRates();
+            updateMetrics(); renderCharts(); renderLedgerTable(_filteredData);
+            showToast('↺ Rates reset to defaults');
         }
 
         function convertCurrency(amt, fromCurrency, toCurrency) {
-            const f = fromCurrency ? fromCurrency.toUpperCase() : 'USD';
-            const t = toCurrency ? toCurrency.toUpperCase() : 'USD';
+            const f = (fromCurrency || 'USD').toUpperCase();
+            const t = (toCurrency || 'USD').toUpperCase();
             if (f === t) return amt;
-            // Cross-calculate strictly against USD base anchor
             const amountInUSD = amt / (_fxRates[f] || 1);
             return amountInUSD * (_fxRates[t] || 1);
         }
@@ -426,6 +620,9 @@
         function formatCurrencyDisplay(amt, currencyCode) {
             const symbols = { USD: '$', MMK: 'Ks ', THB: '฿', CNY: '¥' };
             const symbol = symbols[currencyCode] || '$';
+            if (currencyCode === 'MMK' && Math.abs(amt) >= 100000) {
+                return `${symbol}${(amt / 1000000).toFixed(2)}M`;
+            }
             return `${symbol}${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amt)}`;
         }
 
@@ -433,56 +630,42 @@
             _globalDisplayCurrency = document.getElementById('globalCurrencySelect').value;
             document.getElementById('thGlobalAmountLabel').innerText = `Converted (${_globalDisplayCurrency})`;
             document.getElementById('chartSecondaryUnitLabel').innerText = _globalDisplayCurrency;
-            
-            updateMetrics();
-            renderCharts();
-            renderLedgerTable(_filteredData);
+            updateMetrics(); renderCharts(); renderLedgerTable(_filteredData);
         }
 
         // ==========================================
-        // ANYTIME TEMPORAL CHRONO ENGINE
+        // TEMPORAL ENGINE
         // ==========================================
         function initializeDefaultPickerValues() {
             const now = new Date();
             document.getElementById('customRangeStart').value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
             document.getElementById('customRangeEnd').value = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0,10);
-            
             document.getElementById('pickerSpecificMonth').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
             document.getElementById('pickerSpecificWeek').value = getIsoWeekString(now);
         }
 
         function populateSpecificYearDropdownOptions() {
-            const select = document.getElementById('pickerSpecificYear');
-            const currentYear = new Date().getFullYear();
-            let htmlOptions = "";
-            for(let y = currentYear; y >= currentYear - 8; y--) {
-                htmlOptions += `<option value="${y}">${y}</option>`;
-            }
-            select.innerHTML = htmlOptions;
+            const sel = document.getElementById('pickerSpecificYear');
+            const cy = new Date().getFullYear();
+            sel.innerHTML = Array.from({length: 9}, (_, i) => cy - i).map(y => `<option value="${y}">${y}</option>`).join('');
         }
 
-        function getIsoWeekString(dateObj) {
-            const d = new Date(Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()));
-            const dayNum = d.getUTCDay() || 7;
-            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-            const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1)/7);
-            return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+        function getIsoWeekString(d) {
+            const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            const day = dt.getUTCDay() || 7;
+            dt.setUTCDate(dt.getUTCDate() + 4 - day);
+            const yearStart = new Date(Date.UTC(dt.getUTCFullYear(),0,1));
+            const weekNo = Math.ceil((((dt - yearStart) / 86400000) + 1)/7);
+            return `${dt.getUTCFullYear()}-W${String(weekNo).padStart(2,'0')}`;
         }
 
         function handlePrimaryTimeframeChange() {
-            const selection = document.getElementById('primaryTimeframeSelector').value;
-            
-            document.getElementById('pickerSpecificWeek').classList.add('hidden');
-            document.getElementById('pickerSpecificMonth').classList.add('hidden');
-            document.getElementById('pickerSpecificYear').classList.add('hidden');
-            document.getElementById('pickerCustomRange').classList.add('hidden');
-
-            if(selection === 'specific-week') document.getElementById('pickerSpecificWeek').classList.remove('hidden');
-            if(selection === 'specific-month') document.getElementById('pickerSpecificMonth').classList.remove('hidden');
-            if(selection === 'specific-year') document.getElementById('pickerSpecificYear').classList.remove('hidden');
-            if(selection === 'custom-range') document.getElementById('pickerCustomRange').classList.remove('hidden');
-
+            const sel = document.getElementById('primaryTimeframeSelector').value;
+            ['pickerSpecificWeek','pickerSpecificMonth','pickerSpecificYear','pickerCustomRange'].forEach(id => document.getElementById(id).classList.add('hidden'));
+            if (sel === 'specific-week') document.getElementById('pickerSpecificWeek').classList.remove('hidden');
+            if (sel === 'specific-month') document.getElementById('pickerSpecificMonth').classList.remove('hidden');
+            if (sel === 'specific-year') document.getElementById('pickerSpecificYear').classList.remove('hidden');
+            if (sel === 'custom-range') document.getElementById('pickerCustomRange').classList.remove('hidden');
             executeDataPipelineFilter();
         }
 
@@ -490,365 +673,208 @@
             const mode = document.getElementById('primaryTimeframeSelector').value;
             const titleEl = document.getElementById('activeRangeDisplayTitle');
             const now = new Date();
-            
             let filteredSet = [..._data];
-            let windowLabelText = "";
+            let label = "";
 
             if (mode === 'current-week') {
-                const startOfWeek = new Date(now);
-                startOfWeek.setDate(now.getDate() - now.getDay());
-                startOfWeek.setHours(0,0,0,0);
-                filteredSet = filteredSet.filter(e => new Date(e.date) >= startOfWeek && new Date(e.date) <= now);
-                windowLabelText = "Active Preset: Current Week Dynamic Window";
-            } 
-            else if (mode === 'current-month') {
+                const sow = new Date(now); sow.setDate(now.getDate() - now.getDay()); sow.setHours(0,0,0,0);
+                filteredSet = filteredSet.filter(e => new Date(e.date) >= sow && new Date(e.date) <= now);
+                label = "Current Week";
+            } else if (mode === 'current-month') {
                 filteredSet = filteredSet.filter(e => new Date(e.date).getMonth() === now.getMonth() && new Date(e.date).getFullYear() === now.getFullYear());
-                windowLabelText = `Active Preset: Current Month (${now.toLocaleString('default', { month: 'long' })})`;
-            } 
-            else if (mode === 'current-year') {
+                label = `${now.toLocaleString('default', { month: 'long' })} ${now.getFullYear()}`;
+            } else if (mode === 'current-year') {
                 filteredSet = filteredSet.filter(e => new Date(e.date).getFullYear() === now.getFullYear());
-                windowLabelText = `Active Preset: Calendar Year ${now.getFullYear()}`;
-            } 
-            else if (mode === 'all-time') {
-                windowLabelText = "Active Preset: Master Historical Record Balance";
-            } 
-            else if (mode === 'specific-week') {
-                const weekVal = document.getElementById('pickerSpecificWeek').value;
-                if(weekVal) {
-                    filteredSet = filteredSet.filter(e => getIsoWeekString(new Date(e.date)) === weekVal);
-                    windowLabelText = `Isolated Window: Week [${weekVal}]`;
-                }
-            } 
-            else if (mode === 'specific-month') {
-                const monthVal = document.getElementById('pickerSpecificMonth').value;
-                if(monthVal) {
-                    filteredSet = filteredSet.filter(e => e.date.slice(0, 7) === monthVal);
-                    const parsedM = new Date(monthVal + "-02");
-                    windowLabelText = `Isolated Window: ${parsedM.toLocaleString('default', { month: 'long' })} ${parsedM.getFullYear()}`;
-                }
-            } 
-            else if (mode === 'specific-year') {
-                const yearVal = document.getElementById('pickerSpecificYear').value;
-                if(yearVal) {
-                    filteredSet = filteredSet.filter(e => e.date.slice(0, 4) === yearVal);
-                    windowLabelText = `Isolated Window: Calendar Year ${yearVal}`;
-                }
-            } 
-            else if (mode === 'custom-range') {
-                const startStr = document.getElementById('customRangeStart').value;
-                const endStr = document.getElementById('customRangeEnd').value;
-                if(startStr && endStr) {
-                    const s = new Date(startStr);
-                    const p = new Date(endStr);
-                    filteredSet = filteredSet.filter(e => {
-                        const target = new Date(e.date);
-                        return target >= s && target <= p;
-                    });
-                    windowLabelText = `Bounded Range: ${startStr} to ${endStr}`;
-                }
+                label = `Year ${now.getFullYear()}`;
+            } else if (mode === 'all-time') {
+                label = "All Time Record";
+            } else if (mode === 'specific-week') {
+                const wv = document.getElementById('pickerSpecificWeek').value;
+                if (wv) { filteredSet = filteredSet.filter(e => getIsoWeekString(new Date(e.date)) === wv); label = `Week ${wv}`; }
+            } else if (mode === 'specific-month') {
+                const mv = document.getElementById('pickerSpecificMonth').value;
+                if (mv) { filteredSet = filteredSet.filter(e => e.date.slice(0,7) === mv); const pm = new Date(mv + '-02'); label = `${pm.toLocaleString('default',{month:'long'})} ${pm.getFullYear()}`; }
+            } else if (mode === 'specific-year') {
+                const yv = document.getElementById('pickerSpecificYear').value;
+                if (yv) { filteredSet = filteredSet.filter(e => e.date.slice(0,4) === yv); label = `Year ${yv}`; }
+            } else if (mode === 'custom-range') {
+                const s = document.getElementById('customRangeStart').value;
+                const p = document.getElementById('customRangeEnd').value;
+                if (s && p) { filteredSet = filteredSet.filter(e => { const t = new Date(e.date); return t >= new Date(s) && t <= new Date(p); }); label = `${s} → ${p}`; }
             }
 
-            titleEl.innerText = windowLabelText;
-            
+            titleEl.innerText = label || "Select a range";
             _activeWorkspaceData = filteredSet;
             _filteredData = [..._activeWorkspaceData];
             _currentPage = 1;
-
-            updateMetrics();
-            renderCharts();
-            renderLedgerTable(_filteredData);
+            updateMetrics(); renderCharts(); renderLedgerTable(_filteredData);
         }
 
         // ==========================================
-        // CATEGORIES LOGIC
+        // CATEGORIES
         // ==========================================
         function saveCategories() { localStorage.setItem('lc_categories', JSON.stringify(_categories)); }
         function loadCategories() {
-            const saved = localStorage.getItem('lc_categories');
-            if (saved) { try { _categories = JSON.parse(saved); } catch (e) { console.error(e); } }
+            const s = localStorage.getItem('lc_categories');
+            if (s) { try { _categories = JSON.parse(s); } catch(e) {} }
         }
         function populateCategories() {
-            const select = document.getElementById('expCategory');
-            select.innerHTML = _categories.map(c => `<option value="${c}">${c}</option>`).join('');
+            document.getElementById('expCategory').innerHTML = _categories.map(c => `<option value="${c}">${c}</option>`).join('');
         }
         function manageCategories() {
-            if (!_isAdminMode) return alert('Must be in admin mode to edit categories.');
-            const res = prompt('Manage Categories (comma separated values):', _categories.join(', '));
-            if (res) {
-                _categories = res.split(',').map(s => s.trim()).filter(Boolean);
-                saveCategories(); populateCategories();
-            }
+            if (!_isAdminMode) return showToast('Admin mode required');
+            const res = prompt('Categories (comma-separated):', _categories.join(', '));
+            if (res) { _categories = res.split(',').map(s => s.trim()).filter(Boolean); saveCategories(); populateCategories(); }
         }
 
         // ==========================================
-        // THEME CORE TOGGLING
+        // THEME
         // ==========================================
         if (window.matchMedia('(prefers-color-scheme: dark)').matches) toggleTheme();
         function toggleTheme() {
-            const html = document.documentElement;
-            html.classList.toggle('dark');
-            const isDark = html.classList.contains('dark');
-            document.getElementById('themeIcon').innerHTML = isDark 
-                ? `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M16.243 17.657l.707.707M6.343 6.343l.707-.707M14.25 12a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />`
-                : `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.75A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />`;
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            document.getElementById('themeIcon').innerHTML = isDark
+                ? `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M16.243 17.657l.707.707M6.343 6.343l.707-.707M14.25 12a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/>`
+                : `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.75A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"/>`;
             if (lineChartInstance) renderCharts();
         }
 
         // ==========================================
-        // CRYPTO ARCHITECTURE & SYSTEM IGNITION
+        // CRYPTO + VAULT
         // ==========================================
         function deriveCryptoKey(passcode, saltHex) {
             const salt = CryptoJS.enc.Hex.parse(saltHex);
-            const derivedKey = CryptoJS.PBKDF2(passcode, salt, { keySize: 256 / 32, iterations: 1200 });
-            return derivedKey.toString(CryptoJS.enc.Hex);
+            return CryptoJS.PBKDF2(passcode, salt, { keySize: 256/32, iterations: 1200 }).toString(CryptoJS.enc.Hex);
         }
-
         function setupVault() {
             const url = document.getElementById('setupUrl').value.trim();
             const key = document.getElementById('setupKey').value.trim();
             const pass = document.getElementById('setupPasscode').value.trim();
-            if (!url || !key || !pass) return alert('All setup values are required.');
-
+            if (!url || !key || !pass) return showToast('All fields required.');
             _masterPasscode = pass;
-            const saltHex = CryptoJS.lib.WordArray.random(128 / 8).toString(CryptoJS.enc.Hex);
-            const encryptionKey = deriveCryptoKey(pass, saltHex);
-            const payload = JSON.stringify({ url, key });
-            const ciphertext = CryptoJS.AES.encrypt(payload, encryptionKey).toString();
-            
-            localStorage.setItem('lc_vault', ciphertext);
+            const saltHex = CryptoJS.lib.WordArray.random(128/8).toString(CryptoJS.enc.Hex);
+            const encKey = deriveCryptoKey(pass, saltHex);
+            const cipher = CryptoJS.AES.encrypt(JSON.stringify({ url, key }), encKey).toString();
+            localStorage.setItem('lc_vault', cipher);
             localStorage.setItem('lc_vault_salt', saltHex);
             initSupabase(url, key);
         }
-
         function unlockVault() {
             const pass = document.getElementById('vaultPasscode').value.trim();
-            const ciphertext = localStorage.getItem('lc_vault');
-            const saltHex = localStorage.getItem('lc_vault_salt');
             try {
-                const encryptionKey = deriveCryptoKey(pass, saltHex);
-                const bytes = CryptoJS.AES.decrypt(ciphertext, encryptionKey);
-                const decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
-                if (decryptedData.url && decryptedData.key) {
-                    _masterPasscode = pass;
-                    initSupabase(decryptedData.url, decryptedData.key);
-                } else { throw new Error(); }
-            } catch (err) { alert('Invalid Admin Passcode. Decryption failed.'); }
+                const encKey = deriveCryptoKey(pass, localStorage.getItem('lc_vault_salt'));
+                const bytes = CryptoJS.AES.decrypt(localStorage.getItem('lc_vault'), encKey);
+                const d = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+                if (d.url && d.key) { _masterPasscode = pass; initSupabase(d.url, d.key); }
+                else throw new Error();
+            } catch { showToast('⚠️ Invalid passcode. Decryption failed.'); }
         }
-
         function resetVault() {
-            if (confirm('Clear saved cloud credentials?')) {
-                localStorage.removeItem('lc_vault'); localStorage.removeItem('lc_vault_salt'); location.reload();
+            if (confirm('Clear saved credentials and start over?')) {
+                ['lc_vault','lc_vault_salt'].forEach(k => localStorage.removeItem(k));
+                location.reload();
             }
         }
-
         function initSupabase(url, key) {
             try {
                 _sb = window.supabase.createClient(url, key);
-                document.getElementById('vaultModal').classList.add('hidden');
+                document.getElementById('vaultModal').classList.add('opacity-0', 'pointer-events-none');
+                setTimeout(() => document.getElementById('vaultModal').classList.add('hidden'), 300);
                 _isAdminMode = true; evalAdminInterfaceElements();
                 syncRead();
-            } catch (e) { alert('Supabase Client Engine failure: ' + e.message); }
+            } catch(e) { showToast('Connection error: ' + e.message); }
         }
-
         function lockAdminSession() {
             if (!_isAdminMode) {
-                const pass = prompt('Enter admin passcode to unlock editing:');
+                const pass = prompt('Enter admin passcode:');
                 if (pass === _masterPasscode && pass !== '') { _isAdminMode = true; evalAdminInterfaceElements(); }
-                else if (pass !== null) { alert('Incorrect passcode.'); }
+                else if (pass !== null) showToast('⚠️ Incorrect passcode.');
             } else { _isAdminMode = false; evalAdminInterfaceElements(); }
         }
-
         function evalAdminInterfaceElements() {
             const btn = document.getElementById('adminStatusBtn');
-            const targetElements = document.querySelectorAll('.admin-element');
             const container = document.getElementById('formContainer');
             if (_isAdminMode) {
-                btn.innerText = "🔓 Admin Unlocked";
-                btn.className = "hidden sm:block text-[10px] font-bold uppercase tracking-wider bg-green-500/10 text-green-600 dark:text-green-400 px-3 py-1.5 rounded-lg border border-green-500/20 transition-all shadow-sm";
+                btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg><span>Admin</span>';
+                btn.className = 'hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors text-sm font-bold';
                 container.classList.remove('opacity-40', 'pointer-events-none');
-                targetElements.forEach(t => t.classList.remove('opacity-0', 'pointer-events-none'));
+                document.querySelectorAll('.admin-element').forEach(t => t.classList.remove('opacity-0','pointer-events-none'));
             } else {
-                btn.innerText = "🔒 Locked (Viewer)";
-                btn.className = "hidden sm:block text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 px-3 py-1.5 rounded-lg border border-amber-500/20 transition-all shadow-sm";
-                container.classList.add('opacity-40', 'pointer-events-none');
-                targetElements.forEach(t => { if(t.tagName !== 'DIV') t.classList.add('opacity-0', 'pointer-events-none'); });
+                btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><span>Viewer</span>';
+                btn.className = 'hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors text-sm font-bold';
+                container.classList.add('opacity-40','pointer-events-none');
+                document.querySelectorAll('.admin-element').forEach(t => { if (t.tagName !== 'DIV') t.classList.add('opacity-0','pointer-events-none'); });
                 resetForm();
             }
             renderLedgerTable(_filteredData);
         }
 
         // ==========================================
-        // SYNCHRONIZED CALCULATION ENGINE
+        // SYNC
         // ==========================================
         async function syncRead() {
             if (!_sb) return;
             const { data, error } = await _sb.from('expenses').select('*').order('date', { ascending: false });
             if (error) return console.error(error);
             _data = data;
-            
             executeDataPipelineFilter();
-            document.getElementById('syncBadge').innerText = `Synced: ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}`;
+            const now = new Date();
+            const badge = document.getElementById('syncBadge');
+            badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Synced ${now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
+            badge.classList.remove('hidden');
         }
 
+        // ==========================================
+        // METRICS
+        // ==========================================
         function updateMetrics() {
-            let totalIncome = 0, totalExpense = 0;
-
+            let inc = 0, exp = 0;
             _activeWorkspaceData.forEach(e => {
-                const rawAmount = parseFloat(e.amount);
-                const sourceCurrency = e.currency || 'USD';
-                const type = e.type || 'expense';
-                
-                const convertedAmount = convertCurrency(rawAmount, sourceCurrency, _globalDisplayCurrency);
-                if (type === 'income') totalIncome += convertedAmount;
-                else totalExpense += convertedAmount;
+                const amt = convertCurrency(parseFloat(e.amount), e.currency || 'USD', _globalDisplayCurrency);
+                if ((e.type || 'expense') === 'income') inc += amt; else exp += amt;
             });
-
-            const netCashFlow = totalIncome - totalExpense;
-
-            document.getElementById('statIncome').innerText = formatCurrencyDisplay(totalIncome, _globalDisplayCurrency);
-            document.getElementById('statExpense').innerText = formatCurrencyDisplay(totalExpense, _globalDisplayCurrency);
-            
-            const netFlowEl = document.getElementById('statNetFlow');
-            netFlowEl.innerText = formatCurrencyDisplay(netCashFlow, _globalDisplayCurrency);
-            netFlowEl.className = netCashFlow >= 0 
-                ? "text-2xl lg:text-3xl font-semibold tracking-tight mt-2 text-green-600 dark:text-green-400" 
-                : "text-2xl lg:text-3xl font-semibold tracking-tight mt-2 text-red-500";
-            
-            document.getElementById('statForecast').innerText = formatCurrencyDisplay(calculateContextualWindowForecast(totalExpense), _globalDisplayCurrency);
+            const net = inc - exp;
+            document.getElementById('statIncome').innerText = formatCurrencyDisplay(inc, _globalDisplayCurrency);
+            document.getElementById('statExpense').innerText = formatCurrencyDisplay(exp, _globalDisplayCurrency);
+            const netEl = document.getElementById('statNetFlow');
+            netEl.innerText = formatCurrencyDisplay(net, _globalDisplayCurrency);
+            netEl.className = `text-2xl sm:text-3xl font-bold tracking-tight ${net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`;
+            document.getElementById('statForecast').innerText = formatCurrencyDisplay(calculateContextualWindowForecast(exp), _globalDisplayCurrency);
         }
 
-        function calculateContextualWindowForecast(currentWindowSpend) {
+        function calculateContextualWindowForecast(currentSpend) {
             const mode = document.getElementById('primaryTimeframeSelector').value;
             const now = new Date();
-            
             if (mode === 'current-month' || mode === 'specific-month') {
-                const currentDay = mode === 'current-month' ? now.getDate() : 15;
-                const totalDays = mode === 'current-month' ? new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() : 30;
-                return (currentWindowSpend / (currentDay || 1)) * totalDays;
-            } 
+                const day = mode === 'current-month' ? now.getDate() : 15;
+                const total = mode === 'current-month' ? new Date(now.getFullYear(), now.getMonth()+1, 0).getDate() : 30;
+                return (currentSpend / (day||1)) * total;
+            }
             if (mode === 'current-year' || mode === 'specific-year') {
-                const currentMonthIdx = mode === 'current-year' ? (now.getMonth() + 1) : 6;
-                return (currentWindowSpend / currentMonthIdx) * 12;
+                const mo = mode === 'current-year' ? (now.getMonth()+1) : 6;
+                return (currentSpend / mo) * 12;
             }
-            return currentWindowSpend;
+            return currentSpend;
         }
 
         // ==========================================
-        // DYNAMIC CONTEXT INSIGHTS & CHARTS
+        // CHARTS
         // ==========================================
-        function renderTextualInfographics(dataset) {
-            const container = document.getElementById('categoryDistributionWidget'); 
-            if (!container) return;
-
-            const expensesOnly = dataset.filter(e => (e.type || 'expense') === 'expense');
-            let total = 0;
-            const catMap = {};
-
-            expensesOnly.forEach(e => {
-                const converted = convertCurrency(parseFloat(e.amount), e.currency || 'USD', _globalDisplayCurrency);
-                total += converted;
-                catMap[e.category] = (catMap[e.category] || 0) + converted;
-            });
-
-            if (total === 0) {
-                container.innerHTML = '<p class="text-xs text-neutral-400 italic">No allocations inside active temporal query limits.</p>';
-                return;
-            }
-
-            const breakdowns = Object.keys(catMap).map(cat => ({
-                category: cat,
-                amount: catMap[cat],
-                percentage: ((catMap[cat] / total) * 100).toFixed(1)
-            })).sort((a, b) => b.amount - a.amount);
-
-            container.innerHTML = breakdowns.map(item => `
-                <div class="space-y-1.5 group">
-                    <div class="flex justify-between text-xs font-medium">
-                        <span class="text-neutral-700 dark:text-neutral-300">${item.category}</span>
-                        <span class="text-neutral-500 group-hover:text-[#0071e3] transition-colors">${item.percentage}% <span class="font-normal opacity-60">(${formatCurrencyDisplay(item.amount, _globalDisplayCurrency)})</span></span>
-                    </div>
-                    <div class="w-full bg-neutral-200/60 dark:bg-neutral-800/60 h-2.5 rounded-full overflow-hidden shadow-inner">
-                        <div class="bg-[#0071e3] h-full rounded-full transition-all duration-700 ease-out" style="width: ${item.percentage}%"></div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function detectSpendingSpikes(dataset) {
-            const container = document.getElementById('insightsPanel');
-            if (!container) return;
-            
-            const expensesOnly = dataset.filter(e => (e.type || 'expense') === 'expense');
-            if (!expensesOnly || expensesOnly.length === 0) {
-                container.innerHTML = `<p class="text-xs text-neutral-400 italic">No expense entries found in this timeframe to generate context insights.</p>`;
-                return;
-            }
-
-            let totalConversions = 0;
-            const convertedItems = expensesOnly.map(e => {
-                const amt = convertCurrency(parseFloat(e.amount), e.currency || 'USD', _globalDisplayCurrency);
-                totalConversions += amt;
-                return { ...e, convertedAmount: amt };
-            });
-
-            const windowAvgTransaction = totalConversions / expensesOnly.length;
-            const spikeThreshold = windowAvgTransaction * 2.2;
-            const deviations = convertedItems.filter(e => e.convertedAmount > spikeThreshold);
-
-            let htmlString = "";
-
-            let incAmt = 0, expAmt = 0;
-            dataset.forEach(e => {
-                const converted = convertCurrency(parseFloat(e.amount), e.currency || 'USD', _globalDisplayCurrency);
-                if((e.type || 'expense') === 'income') incAmt += converted;
-                else expAmt += converted;
-            });
-            
-            if(incAmt > 0) {
-                const rate = (((incAmt - expAmt) / incAmt) * 100).toFixed(1);
-                htmlString += `
-                    <div class="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-700 dark:text-blue-400 hover:shadow-sm transition-shadow">
-                        <strong class="font-semibold block mb-0.5">Timeframe Savings Rate</strong>
-                        You retained **${rate}%** of income streams processed inside this selection boundaries.
-                    </div>`;
-            }
-
-            if (deviations.length === 0) {
-                htmlString += `
-                    <div class="flex items-center space-x-2 text-green-600 dark:text-green-500 pt-1">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <p class="text-xs font-medium">No sharp deviation anomalies inside this active timeframe window.</p>
-                    </div>`;
-            } else {
-                htmlString += deviations.slice(0, 3).map(item => `
-                    <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-700 dark:text-amber-400 flex items-start space-x-2.5 hover:shadow-sm transition-shadow">
-                        <span class="text-base leading-none">⚠️</span>
-                        <div class="leading-relaxed">
-                            <strong class="font-semibold block mb-0.5">Timeframe Deviation Spike</strong>
-                            Spent ${formatCurrencyDisplay(item.convertedAmount, _globalDisplayCurrency)} on <span class="font-medium">${item.category}</span> (${item.date}). Exceeds timeframe transactional average baseline.
-                        </div>
-                    </div>
-                `).join('');
-            }
-            container.innerHTML = htmlString;
-        }
-
         function renderCharts() {
             const isDark = document.documentElement.classList.contains('dark');
-            const textColor = isDark ? '#a1a1aa' : '#737373';
-            const gridColor = isDark ? '#27272a' : '#e5e5e5';
-
-            const lineContainer = document.getElementById('lineChartContainer');
-            const pieContainer = document.getElementById('pieChartContainer');
+            const textColor = isDark ? '#a1a1aa' : '#71717a';
+            const gridColor = isDark ? '#27272a' : '#f4f4f5';
+            const lc = document.getElementById('lineChartContainer');
+            const pc = document.getElementById('pieChartContainer');
 
             if (_activeWorkspaceData.length === 0) {
-                lineContainer.classList.add('empty-chart'); pieContainer.classList.add('empty-chart');
+                lc.classList.add('empty-chart'); pc.classList.add('empty-chart');
                 if (lineChartInstance) lineChartInstance.destroy();
                 if (pieChartInstance) pieChartInstance.destroy();
                 return;
-            } else {
-                lineContainer.classList.remove('empty-chart'); pieContainer.classList.remove('empty-chart');
             }
+            lc.classList.remove('empty-chart'); pc.classList.remove('empty-chart');
 
             const timelineMap = {};
             _activeWorkspaceData.forEach(e => {
@@ -856,56 +882,77 @@
                 const delta = (e.type || 'expense') === 'income' ? amt : -amt;
                 timelineMap[e.date] = (timelineMap[e.date] || 0) + delta;
             });
-            const sortedDates = Object.keys(timelineMap).sort((a,b) => new Date(a) - new Date(b));
-            const timelineData = sortedDates.map(d => timelineMap[d]);
+            const sortedDates = Object.keys(timelineMap).sort((a,b) => new Date(a)-new Date(b));
 
-            if(lineChartInstance) lineChartInstance.destroy();
-            lineChartInstance = new Chart(document.getElementById('lineChart').getContext('2d'), {
+            if (lineChartInstance) lineChartInstance.destroy();
+            const ctxLine = document.getElementById('lineChart').getContext('2d');
+            const gradient = ctxLine.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, isDark ? 'rgba(0,113,227,0.3)' : 'rgba(0,113,227,0.15)');
+            gradient.addColorStop(1, 'rgba(0,113,227,0)');
+
+            lineChartInstance = new Chart(ctxLine, {
                 type: 'line',
                 data: {
                     labels: sortedDates,
                     datasets: [{
-                        data: timelineData,
+                        data: sortedDates.map(d => timelineMap[d]),
                         borderColor: '#0071e3',
-                        backgroundColor: isDark ? 'rgba(0, 113, 227, 0.1)' : 'rgba(0, 113, 227, 0.05)',
-                        borderWidth: 3, pointRadius: 3, pointBackgroundColor: '#0071e3', tension: 0.4, fill: true
+                        backgroundColor: gradient,
+                        borderWidth: 3, pointRadius: 4, pointHoverRadius: 6, pointBackgroundColor: '#ffffff', pointBorderColor: '#0071e3', pointBorderWidth: 2,
+                        tension: 0.4, fill: true
                     }]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: { 
+                        legend: { display: false }, 
+                        tooltip: {
+                            backgroundColor: isDark ? '#18181b' : '#ffffff',
+                            titleColor: isDark ? '#ffffff' : '#09090b',
+                            bodyColor: isDark ? '#a1a1aa' : '#71717a',
+                            borderColor: gridColor,
+                            borderWidth: 1,
+                            padding: 12,
+                            boxPadding: 6,
+                            callbacks: { label: ctx => formatCurrencyDisplay(ctx.raw, _globalDisplayCurrency) }
+                        }
+                    },
                     scales: {
-                        x: { grid: { color: gridColor }, ticks: { color: textColor, maxTicksLimit: 7 } },
-                        y: { grid: { color: gridColor, borderDash: [4, 4] }, ticks: { color: textColor } }
+                        x: { grid: { display: false }, ticks: { color: textColor, maxTicksLimit: 7, font: { family: 'Inter', size: 12, weight: 500 } }, border: { display: false } },
+                        y: { grid: { color: gridColor, borderDash: [4,4] }, ticks: { color: textColor, font: { family: 'Inter', size: 12, weight: 500 }, callback: v => formatCurrencyDisplay(v, _globalDisplayCurrency) }, border: { display: false } }
                     }
                 }
             });
 
-            const expensesOnly = _activeWorkspaceData.filter(e => (e.type || 'expense') === 'expense');
+            const expOnly = _activeWorkspaceData.filter(e => (e.type || 'expense') === 'expense');
             const catMap = {};
-            expensesOnly.forEach(e => {
-                const converted = convertCurrency(parseFloat(e.amount), e.currency || 'USD', _globalDisplayCurrency);
-                catMap[e.category] = (catMap[e.category] || 0) + converted;
+            expOnly.forEach(e => {
+                const amt = convertCurrency(parseFloat(e.amount), e.currency || 'USD', _globalDisplayCurrency);
+                catMap[e.category] = (catMap[e.category] || 0) + amt;
             });
 
-            if(pieChartInstance) pieChartInstance.destroy();
-            if(Object.keys(catMap).length === 0) {
-                pieContainer.classList.add('empty-chart');
-            } else {
-                pieContainer.classList.remove('empty-chart');
+            if (pieChartInstance) pieChartInstance.destroy();
+            if (Object.keys(catMap).length === 0) { pc.classList.add('empty-chart'); }
+            else {
+                pc.classList.remove('empty-chart');
                 pieChartInstance = new Chart(document.getElementById('pieChart').getContext('2d'), {
                     type: 'doughnut',
                     data: {
                         labels: Object.keys(catMap),
-                        datasets: [{
-                            data: Object.values(catMap),
-                            backgroundColor: ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#0071e3', '#5856d6', '#af52de'],
-                            borderWidth: 0, hoverOffset: 4
-                        }]
+                        datasets: [{ data: Object.values(catMap), backgroundColor: PALETTE, borderWidth: 0, hoverOffset: 8 }]
                     },
                     options: {
                         responsive: true, maintainAspectRatio: false, cutout: '75%',
-                        plugins: { legend: { position: 'bottom', labels: { color: textColor, boxWidth: 10, padding: 10, usePointStyle: true } } }
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: textColor, boxWidth: 10, padding: 16, usePointStyle: true, font: { family: 'Inter', size: 12, weight: 500 } } },
+                            tooltip: {
+                                backgroundColor: isDark ? '#18181b' : '#ffffff',
+                                titleColor: isDark ? '#ffffff' : '#09090b',
+                                bodyColor: isDark ? '#a1a1aa' : '#71717a',
+                                borderColor: gridColor, borderWidth: 1, padding: 12,
+                                callbacks: { label: ctx => ` ${formatCurrencyDisplay(ctx.raw, _globalDisplayCurrency)}` } 
+                            }
+                        }
                     }
                 });
             }
@@ -915,21 +962,89 @@
         }
 
         // ==========================================
-        // WORKSPACE MATRIX FILTRATION & PAGINATION
+        // INFOGRAPHICS & INSIGHTS
         // ==========================================
-        function filterLedger(searchTerm) {
-            const term = searchTerm.toLowerCase().trim();
-            if (!term) {
-                _filteredData = [..._activeWorkspaceData];
-            } else {
-                _filteredData = _activeWorkspaceData.filter(e => 
-                    e.category.toLowerCase().includes(term) || 
-                    (e.description && e.description.toLowerCase().includes(term)) ||
-                    e.amount.toString().includes(term) ||
-                    (e.currency && e.currency.toLowerCase().includes(term)) ||
-                    e.date.includes(term)
-                );
+        function renderTextualInfographics(dataset) {
+            const container = document.getElementById('categoryDistributionWidget');
+            if (!container) return;
+            const expOnly = dataset.filter(e => (e.type || 'expense') === 'expense');
+            let total = 0; const catMap = {};
+            expOnly.forEach(e => {
+                const c = convertCurrency(parseFloat(e.amount), e.currency || 'USD', _globalDisplayCurrency);
+                total += c; catMap[e.category] = (catMap[e.category] || 0) + c;
+            });
+            if (total === 0) { container.innerHTML = '<p class="text-sm text-zinc-400 italic">No expenses recorded.</p>'; return; }
+            const items = Object.entries(catMap).map(([cat, amt]) => ({ cat, amt, pct: ((amt/total)*100).toFixed(1) })).sort((a,b) => b.amt - a.amt);
+            container.innerHTML = items.map((item, i) => `
+                <div class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <span class="font-semibold text-zinc-700 dark:text-zinc-200 truncate max-w-[55%]">${item.cat}</span>
+                        <span class="text-zinc-500 font-bold flex-shrink-0 ml-2">${item.pct}% <span class="opacity-60 font-medium ml-1">${formatCurrencyDisplay(item.amt, _globalDisplayCurrency)}</span></span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${item.pct}%; background: ${PALETTE[i % PALETTE.length]}"></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function detectSpendingSpikes(dataset) {
+            const container = document.getElementById('insightsPanel');
+            if (!container) return;
+            const expOnly = dataset.filter(e => (e.type || 'expense') === 'expense');
+            if (!expOnly.length) { container.innerHTML = `<p class="text-sm text-zinc-400 italic">Gathering data for insights...</p>`; return; }
+
+            let totalConv = 0;
+            const convItems = expOnly.map(e => { const a = convertCurrency(parseFloat(e.amount), e.currency || 'USD', _globalDisplayCurrency); totalConv += a; return { ...e, ca: a }; });
+            const avg = totalConv / expOnly.length;
+            const spikes = convItems.filter(e => e.ca > avg * 2.5);
+
+            let html = '';
+            let incAmt = 0, expAmt = 0;
+            dataset.forEach(e => {
+                const c = convertCurrency(parseFloat(e.amount), e.currency || 'USD', _globalDisplayCurrency);
+                if ((e.type || 'expense') === 'income') incAmt += c; else expAmt += c;
+            });
+
+            if (incAmt > 0) {
+                const rate = (((incAmt - expAmt) / incAmt) * 100).toFixed(1);
+                html += `<div class="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20">
+                    <strong class="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">Savings Rate</strong>
+                    <div class="text-sm text-zinc-700 dark:text-zinc-300"><span class="font-bold text-blue-600 dark:text-blue-400 text-base">${rate}%</span> of incoming cash retained.</div>
+                </div>`;
             }
+
+            if (spikes.length === 0) {
+                html += `<div class="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 flex items-start gap-3">
+                    <svg class="w-5 h-5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span class="text-sm text-emerald-700 dark:text-emerald-400 font-medium">Spending remains within typical, expected parameters.</span>
+                </div>`;
+            } else {
+                html += spikes.slice(0,2).map(item => `
+                    <div class="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 flex items-start gap-3">
+                        <svg class="w-5 h-5 text-rose-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        <div class="text-sm text-zinc-700 dark:text-zinc-300">
+                            <strong class="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 block mb-1">Anomaly Detected</strong>
+                            <span class="font-bold">${formatCurrencyDisplay(item.ca, _globalDisplayCurrency)}</span> on ${item.category} (${item.date}) is unusually high.
+                        </div>
+                    </div>
+                `).join('');
+            }
+            container.innerHTML = html;
+        }
+
+        // ==========================================
+        // LEDGER TABLE
+        // ==========================================
+        function filterLedger(term) {
+            const t = term.toLowerCase().trim();
+            _filteredData = t ? _activeWorkspaceData.filter(e =>
+                e.category.toLowerCase().includes(t) ||
+                (e.description && e.description.toLowerCase().includes(t)) ||
+                e.amount.toString().includes(t) ||
+                (e.currency && e.currency.toLowerCase().includes(t)) ||
+                e.date.includes(t)
+            ) : [..._activeWorkspaceData];
             _currentPage = 1;
             renderLedgerTable(_filteredData);
         }
@@ -937,115 +1052,107 @@
         function renderLedgerTable(dataArray = _filteredData) {
             const tbody = document.getElementById('ledgerBody');
             document.getElementById('masterCheckbox').checked = false;
-            
+
             if (dataArray.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-10 text-center text-xs text-neutral-400 italic">No transactions index inside constraints.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-16 text-center text-sm font-medium text-zinc-400">No transactions match your criteria.</td></tr>`;
                 updatePaginationControls(0); evaluateBulkActionToolbarState(); return;
             }
 
-            const totalRecords = dataArray.length;
-            const startIndex = (_currentPage - 1) * _pageSize;
-            const endIndex = Math.min(startIndex + _pageSize, totalRecords);
-            const paginatedSlice = dataArray.slice(startIndex, endIndex);
+            const total = dataArray.length;
+            const start = (_currentPage - 1) * _pageSize;
+            const end = Math.min(start + _pageSize, total);
+            const slice = dataArray.slice(start, end);
 
-            tbody.innerHTML = paginatedSlice.map(e => {
+            tbody.innerHTML = slice.map(e => {
                 const type = e.type || 'expense';
                 const isIncome = type === 'income';
-                const rawAmt = parseFloat(e.amount);
-                const sourceCurr = e.currency || 'USD';
-                
-                const convertedGlobalVal = convertCurrency(rawAmt, sourceCurr, _globalDisplayCurrency);
+                const raw = parseFloat(e.amount);
+                const srcCurr = e.currency || 'USD';
+                const converted = convertCurrency(raw, srcCurr, _globalDisplayCurrency);
 
                 return `
-                    <tr class="hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 transition-colors group">
-                        <td class="px-5 py-3.5 text-center">
-                            <input type="checkbox" data-id="${e.id}" onclick="handleRowCheckboxClick()" class="row-checkbox rounded border-gray-300 dark:border-neutral-600 text-[#0071e3] focus:ring-[#0071e3] transition-colors">
+                    <tr>
+                        <td class="px-5 py-4 text-center border-b border-zinc-200 dark:border-zinc-800"><input type="checkbox" data-id="${e.id}" onclick="handleRowCheckboxClick()" class="row-checkbox accent-blue-600 w-4 h-4 cursor-pointer rounded border-zinc-300"></td>
+                        <td class="px-5 py-4 font-semibold text-zinc-700 dark:text-zinc-300 whitespace-nowrap border-b border-zinc-200 dark:border-zinc-800">${e.date}</td>
+                        <td class="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">${e.category}</span>
                         </td>
-                        <td class="px-5 py-3.5 font-medium text-neutral-700 dark:text-neutral-300">${e.date}</td>
-                        <td class="px-5 py-3.5"><span class="px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded-full bg-neutral-200/60 dark:bg-[#1c1c1e] text-neutral-600 dark:text-neutral-400 group-hover:bg-white dark:group-hover:bg-[#2c2c2e] border border-neutral-300/30 transition-all">${e.category}</span></td>
-                        <td class="px-5 py-3.5 text-neutral-500 dark:text-neutral-400 max-w-xs truncate" title="${e.description || ''}">${e.description || '—'}</td>
-                        <td class="px-5 py-3.5 text-right font-medium text-neutral-500 dark:text-neutral-500">
-                            ${formatCurrencyDisplay(rawAmt, sourceCurr)}
+                        <td class="px-5 py-4 text-zinc-500 dark:text-zinc-400 max-w-[150px] truncate hidden md:table-cell font-medium border-b border-zinc-200 dark:border-zinc-800" title="${e.description || ''}">${e.description || '—'}</td>
+                        <td class="px-5 py-4 text-right font-semibold text-zinc-500 whitespace-nowrap border-b border-zinc-200 dark:border-zinc-800">${formatCurrencyDisplay(raw, srcCurr)}</td>
+                        <td class="px-5 py-4 text-right font-bold whitespace-nowrap border-b border-zinc-200 dark:border-zinc-800 ${isIncome ? 'text-emerald-500' : 'text-zinc-900 dark:text-white'}">
+                            ${isIncome ? '+' : '−'} ${formatCurrencyDisplay(converted, _globalDisplayCurrency)}
                         </td>
-                        <td class="px-5 py-3.5 text-right font-semibold ${isIncome ? 'text-green-600 dark:text-green-400' : 'text-[#1d1d1f] dark:text-[#f5f5f7]'}">
-                            ${isIncome ? '+' : '-'}${formatCurrencyDisplay(convertedGlobalVal, _globalDisplayCurrency)}
-                        </td>
-                        <td class="px-5 py-3.5 text-center admin-element ${ _isAdminMode ? 'opacity-100' : 'opacity-0 pointer-events-none' }">
-                            <button onclick="prepEdit('${e.id}')" class="text-[10px] uppercase font-bold tracking-wider text-[#0071e3] hover:underline mr-3 transition-all">Edit</button>
-                            <button onclick="deleteItem('${e.id}')" class="text-[10px] uppercase font-bold tracking-wider text-red-500 hover:underline transition-all">Delete</button>
+                        <td class="px-5 py-4 text-center admin-element ${_isAdminMode ? '' : 'opacity-0 pointer-events-none'} whitespace-nowrap border-b border-zinc-200 dark:border-zinc-800">
+                            <button onclick="prepEdit('${e.id}')" class="text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 mr-3 transition-colors">Edit</button>
+                            <button onclick="deleteItem('${e.id}')" class="text-xs font-bold text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors">Delete</button>
                         </td>
                     </tr>
                 `;
             }).join('');
 
-            updatePaginationControls(totalRecords, startIndex, endIndex);
+            updatePaginationControls(total, start, end);
             evaluateBulkActionToolbarState();
         }
 
-        function updatePaginationControls(totalRecords, start = 0, end = 0) {
-            const infoLabel = document.getElementById('paginationInfo');
-            const btnPrev = document.getElementById('btnPrevPage');
-            const btnNext = document.getElementById('btnNextPage');
-            if(totalRecords === 0) {
-                infoLabel.innerText = "Showing 0-0 of 0 entries"; btnPrev.disabled = true; btnNext.disabled = true; return;
-            }
-            infoLabel.innerText = `Showing ${start + 1}-${end} of ${totalRecords} entries`;
-            btnPrev.disabled = (_currentPage === 1);
-            btnNext.disabled = (end >= totalRecords);
+        function updatePaginationControls(total, start=0, end=0) {
+            const info = document.getElementById('paginationInfo');
+            const prev = document.getElementById('btnPrevPage');
+            const next = document.getElementById('btnNextPage');
+            if (total === 0) { info.innerText = '0 entries'; prev.disabled = true; next.disabled = true; return; }
+            info.innerText = `${start+1} – ${end} OF ${total}`;
+            prev.disabled = (_currentPage === 1);
+            next.disabled = (end >= total);
         }
 
-        function changePage(direction) { _currentPage += direction; renderLedgerTable(_filteredData); }
-        function toggleSelectAllRows(masterNode) {
-            document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = masterNode.checked);
+        function changePage(dir) { _currentPage += dir; renderLedgerTable(_filteredData); }
+
+        function toggleSelectAllRows(master) {
+            document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = master.checked);
             evaluateBulkActionToolbarState();
         }
         function handleRowCheckboxClick() {
-            const total = document.querySelectorAll('.row-checkbox').length;
+            const all = document.querySelectorAll('.row-checkbox').length;
             const checked = document.querySelectorAll('.row-checkbox:checked').length;
-            document.getElementById('masterCheckbox').checked = (total === checked);
+            document.getElementById('masterCheckbox').checked = (all === checked);
             evaluateBulkActionToolbarState();
         }
         function evaluateBulkActionToolbarState() {
-            const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
-            const bulkBtn = document.getElementById('bulkDeleteBtn');
-            if(_isAdminMode && checkedCount > 0) {
-                bulkBtn.classList.remove('hidden'); document.getElementById('bulkSelectCount').innerText = checkedCount;
-            } else { bulkBtn.classList.add('hidden'); }
+            const count = document.querySelectorAll('.row-checkbox:checked').length;
+            const btn = document.getElementById('bulkDeleteBtn');
+            if (_isAdminMode && count > 0) { btn.classList.remove('hidden'); btn.classList.add('flex'); document.getElementById('bulkSelectCount').innerText = count; }
+            else { btn.classList.add('hidden'); btn.classList.remove('flex'); }
         }
 
         async function handleBulkDelete() {
             if (!_isAdminMode || !_sb) return;
-            const targetCheckedBoxes = document.querySelectorAll('.row-checkbox:checked');
-            const idsToDelete = Array.from(targetCheckedBoxes).map(cb => cb.getAttribute('data-id'));
-            if (idsToDelete.length === 0 || !confirm(`Permanently clear these ${idsToDelete.length} transactions from the cloud?`)) return;
-
-            const { error } = await _sb.from('expenses').delete().in('id', idsToDelete);
-            if (error) alert('Bulk failure: ' + error.message);
-            else await syncRead();
+            const ids = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.getAttribute('data-id'));
+            if (!ids.length || !confirm(`Permanently delete ${ids.length} transaction(s)?`)) return;
+            const { error } = await _sb.from('expenses').delete().in('id', ids);
+            if (error) showToast('Delete error: ' + error.message);
+            else { showToast(`✓ Deleted ${ids.length} records`); await syncRead(); }
         }
 
         // ==========================================
-        // TRANSACTION MUTATION OPERATIONS
+        // FORM
         // ==========================================
         function setFormType(type) {
             document.getElementById('expType').value = type;
-            const btnExpense = document.getElementById('typeBtnExpense');
-            const btnIncome = document.getElementById('typeBtnIncome');
-            if(type === 'expense') {
-                btnExpense.className = "py-2 text-xs font-medium rounded-lg transition-all bg-white dark:bg-[#1c1c1e] text-[#1d1d1f] dark:text-[#f5f5f7] shadow-sm";
-                btnIncome.className = "py-2 text-xs font-medium rounded-lg transition-all text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300";
+            const eBtn = document.getElementById('typeBtnExpense');
+            const iBtn = document.getElementById('typeBtnIncome');
+            if (type === 'expense') {
+                eBtn.className = 'py-2.5 text-sm rounded-lg transition-all type-active';
+                iBtn.className = 'py-2.5 text-sm rounded-lg transition-all text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 font-medium';
             } else {
-                btnIncome.className = "py-2 text-xs font-medium rounded-lg transition-all bg-white dark:bg-[#1c1c1e] text-[#1d1d1f] dark:text-[#f5f5f7] shadow-sm";
-                btnExpense.className = "py-2 text-xs font-medium rounded-lg transition-all text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300";
+                iBtn.className = 'py-2.5 text-sm rounded-lg transition-all type-active';
+                eBtn.className = 'py-2.5 text-sm rounded-lg transition-all text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 font-medium';
             }
         }
 
         async function handleFormSubmit(e) {
             e.preventDefault();
             if (!_isAdminMode || !_sb) return;
-
             const id = document.getElementById('editId').value;
-            const rowPayload = {
+            const payload = {
                 amount: parseFloat(document.getElementById('expAmount').value),
                 currency: document.getElementById('expCurrency').value,
                 category: document.getElementById('expCategory').value,
@@ -1053,25 +1160,18 @@
                 date: document.getElementById('expDate').value,
                 type: document.getElementById('expType').value
             };
-
-            let err = null;
-            const submitBtn = document.getElementById('submitFormBtn');
-            submitBtn.disabled = true;
-
-            if (id) {
-                const { error } = await _sb.from('expenses').update(rowPayload).eq('id', id); err = error;
-            } else {
-                const { error } = await _sb.from('expenses').insert([rowPayload]); err = error;
-            }
-
-            submitBtn.disabled = false;
-            if (err) alert('Write operational error: ' + err.message);
-            else { resetForm(); await syncRead(); }
+            const btn = document.getElementById('submitFormBtn');
+            btn.disabled = true; btn.innerText = 'Saving…';
+            let err;
+            if (id) { const r = await _sb.from('expenses').update(payload).eq('id', id); err = r.error; }
+            else { const r = await _sb.from('expenses').insert([payload]); err = r.error; }
+            btn.disabled = false; btn.innerText = id ? 'Update Transaction' : 'Save Transaction';
+            if (err) showToast('Error: ' + err.message);
+            else { resetForm(); showToast('✓ Record Saved'); await syncRead(); }
         }
 
         function prepEdit(id) {
-            const item = _data.find(e => e.id === id);
-            if (!item) return;
+            const item = _data.find(e => e.id === id); if (!item) return;
             document.getElementById('editId').value = item.id;
             document.getElementById('expAmount').value = item.amount;
             document.getElementById('expCurrency').value = item.currency || 'USD';
@@ -1079,97 +1179,76 @@
             document.getElementById('expDesc').value = item.description || '';
             document.getElementById('expDate').value = item.date;
             setFormType(item.type || 'expense');
-            
-            document.getElementById('formTitle').innerText = "Modify Transaction";
-            document.getElementById('submitFormBtn').innerText = "Update Entry";
+            document.getElementById('formTitle').innerText = 'Edit Transaction';
+            document.getElementById('submitFormBtn').innerText = 'Update Transaction';
             document.getElementById('cancelEditBtn').classList.remove('hidden');
             document.getElementById('formContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         function resetForm() {
-            document.getElementById('editId').value = ''; document.getElementById('expenseForm').reset();
+            document.getElementById('editId').value = '';
+            document.getElementById('expenseForm').reset();
             document.getElementById('expDate').valueAsDate = new Date();
-            document.getElementById('formTitle').innerText = "Add Transaction";
-            document.getElementById('submitFormBtn').innerText = "Save Entry";
+            document.getElementById('formTitle').innerText = 'Add Transaction';
+            document.getElementById('submitFormBtn').innerText = 'Save Transaction';
             document.getElementById('cancelEditBtn').classList.add('hidden');
             setFormType('expense');
         }
 
         async function deleteItem(id) {
-            if (!_isAdminMode || !confirm('Permanently delete this record?')) return;
+            if (!_isAdminMode || !confirm('Permanently delete this entry?')) return;
             const { error } = await _sb.from('expenses').delete().eq('id', id);
-            if (error) alert('Deletion error: ' + error.message);
-            else await syncRead();
+            if (error) showToast('Delete error: ' + error.message);
+            else { showToast('✓ Deleted'); await syncRead(); }
         }
 
         // ==========================================
-        // SPREADSHEET ENGINE EXCHANGE INTERFACES
+        // EXPORT / IMPORT
         // ==========================================
         function exportData(format = 'json') {
-            if (_activeWorkspaceData.length === 0) return alert("No active workspace items available to export.");
-            let blobContent = "", fileExtension = "", mimeType = "";
-
+            if (_activeWorkspaceData.length === 0) return showToast('No data available to export.');
+            let content, ext, mime;
             if (format === 'json') {
-                blobContent = JSON.stringify(_activeWorkspaceData, null, 2); fileExtension = 'json'; mimeType = 'application/json';
-            } else if (format === 'csv') {
-                const headers = ["date", "type", "category", "description", "amount", "currency"];
-                const csvRows = [headers.join(",")];
-                _activeWorkspaceData.forEach(item => {
-                    const row = [
-                        item.date, item.type || 'expense', item.category,
-                        `"${(item.description || '').replace(/"/g, '""')}"`,
-                        item.amount, item.currency || 'USD'
-                    ];
-                    csvRows.push(row.join(","));
-                });
-                blobContent = csvRows.join("\n"); fileExtension = 'csv'; mimeType = 'text/csv';
+                content = JSON.stringify(_activeWorkspaceData, null, 2); ext = 'json'; mime = 'application/json';
+            } else {
+                const headers = ['date','type','category','description','amount','currency'];
+                const rows = [headers.join(','), ..._activeWorkspaceData.map(i => [i.date, i.type||'expense', i.category, `"${(i.description||'').replace(/"/g,'""')}"`, i.amount, i.currency||'USD'].join(','))];
+                content = rows.join('\n'); ext = 'csv'; mime = 'text/csv';
             }
-
-            const blob = new Blob([blobContent], { type: mimeType });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = `ledgercloud_window_export.${fileExtension}`; a.click();
+            const url = URL.createObjectURL(new Blob([content], { type: mime }));
+            Object.assign(document.createElement('a'), { href: url, download: `ledger_export.${ext}` }).click();
             URL.revokeObjectURL(url);
+            showToast(`✓ Exported successfully`);
         }
 
         async function importData(event) {
-            if (!_isAdminMode) return alert('Admin validation required.');
+            if (!_isAdminMode) return showToast('Admin mode required.');
             const file = event.target.files[0]; if (!file) return;
-
             const ext = file.name.split('.').pop().toLowerCase();
             const reader = new FileReader();
-            
             reader.onload = async function(e) {
                 try {
-                    let itemsToInsert = [];
+                    let items = [];
                     if (ext === 'json') {
-                        itemsToInsert = JSON.parse(e.target.result).map(({amount, currency, category, description, date, type}) => ({
-                            amount: parseFloat(amount), currency: currency || 'USD', category, description: description || '', date, type: type || 'expense'
+                        items = JSON.parse(e.target.result).map(({amount, currency, category, description, date, type}) => ({
+                            amount: parseFloat(amount), currency: currency||'USD', category, description: description||'', date, type: type||'expense'
                         }));
                     } else if (ext === 'csv') {
-                        const lines = e.target.result.split(/\r?\n/).filter(l => l.trim() !== '');
-                        for(let i = 1; i < lines.length; i++) {
-                            const tokens = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); if(tokens.length < 5) continue;
-                            const date = tokens[0].trim();
-                            const type = tokens[1].trim().toLowerCase() === 'income' ? 'income' : 'expense';
-                            const category = tokens[2].trim();
-                            let description = tokens[3].trim().replace(/^"|"$/g, '').replace(/""/g, '"');
-                            const amount = parseFloat(tokens[4].trim());
-                            const currency = tokens[5] ? tokens[5].trim().toUpperCase() : 'USD';
-                            
-                            if(date && category && !isNaN(amount)) {
-                                itemsToInsert.push({ date, type, category, description, amount, currency });
+                        const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
+                        for (let i = 1; i < lines.length; i++) {
+                            const t = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); if (t.length < 5) continue;
+                            const amt = parseFloat(t[4]?.trim());
+                            if (t[0]?.trim() && t[2]?.trim() && !isNaN(amt)) {
+                                items.push({ date: t[0].trim(), type: t[1]?.trim().toLowerCase() === 'income' ? 'income' : 'expense', category: t[2].trim(), description: t[3]?.trim().replace(/^"|"$/g,'').replace(/""/g,'"') || '', amount: amt, currency: t[5]?.trim().toUpperCase() || 'USD' });
                             }
                         }
                     }
-
-                    if (itemsToInsert.length === 0) throw new Error("No readable valid rows parsed.");
-                    const { error } = await _sb.from('expenses').insert(itemsToInsert);
+                    if (!items.length) throw new Error('No valid records found in file.');
+                    const { error } = await _sb.from('expenses').insert(items);
                     if (error) throw error;
-                    
                     await syncRead();
-                    alert(`Successfully imported ${itemsToInsert.length} database items.`);
-                } catch (err) { alert('Import parse exception: ' + err.message); }
+                    showToast(`✓ Imported ${items.length} records`);
+                } catch (err) { showToast('Import error: ' + err.message); }
             };
             reader.readAsText(file); event.target.value = '';
         }
